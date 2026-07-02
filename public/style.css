@@ -1,0 +1,282 @@
+:root {
+  --bg: #111318;
+  --panel: #1b1e26;
+  --panel-2: #232733;
+  --text: #eef1f7;
+  --muted: #9aa3b5;
+  --accent: #4f8cff;
+  --accent-2: #3567c9;
+  --danger: #e5533d;
+  --ok: #35c06f;
+  --warn: #e0a63c;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--text);
+}
+
+.hidden { display: none !important; }
+
+/* ---------- 공통 배지 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+.badge .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted);
+}
+.badge.ok .dot { background: var(--ok); }
+.badge.warn .dot { background: var(--warn); }
+.badge.err .dot { background: var(--danger); }
+
+/* ==================== 휴대폰(송출) 페이지 ==================== */
+.mobile-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 16px;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.mobile-page header h1 {
+  margin: 4px 0 2px;
+  font-size: 22px;
+}
+.mobile-page header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.preview-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 3 / 4;
+}
+.preview-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  font-size: 15px;
+  text-align: center;
+  padding: 20px;
+}
+.preview-overlay .cam-icon { font-size: 42px; }
+
+.status-bar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+.status-bar .badge { backdrop-filter: blur(6px); background: rgba(20,22,28,.65); }
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.controls .row {
+  display: flex;
+  gap: 10px;
+}
+.controls input[type="text"] {
+  flex: 1;
+  padding: 13px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-2);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 15px;
+  min-width: 0;
+}
+.controls label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.btn {
+  padding: 15px 18px;
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--panel-2);
+  transition: filter .15s;
+}
+.btn:active { filter: brightness(1.2); }
+.btn.primary { background: var(--accent); }
+.btn.danger { background: var(--danger); }
+.btn.wide { width: 100%; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 0;
+}
+
+/* ==================== 데스크톱(뷰어) 페이지 ==================== */
+.viewer-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.viewer-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-2);
+  flex-wrap: wrap;
+}
+.viewer-header h1 {
+  font-size: 17px;
+  margin: 0;
+}
+.viewer-header .spacer { flex: 1; }
+.viewer-header .addr {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  user-select: all;
+}
+
+.stage {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+/* 대기(빈) 화면: QR 안내 */
+.empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+}
+.empty-state img.qr {
+  width: 240px;
+  height: 240px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px;
+}
+.empty-state h2 { margin: 0; font-size: 22px; }
+.empty-state .steps {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 2;
+  text-align: left;
+}
+.empty-state .addr-big {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 18px;
+  color: var(--accent);
+  user-select: all;
+}
+
+/* 스트림 그리드 */
+.grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+}
+.tile {
+  position: relative;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+.tile video, .tile img.frame {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+.tile .tile-bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(transparent, rgba(0,0,0,.75));
+  font-size: 13px;
+}
+.tile .tile-bar .name { font-weight: 700; }
+.tile .tile-bar .spacer { flex: 1; }
+.tile .tile-bar button {
+  background: rgba(255,255,255,.14);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 13px;
+}
+.tile .connecting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 14px;
+  background: var(--panel);
+}

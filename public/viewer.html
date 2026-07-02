@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhoneCam Viewer</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="viewer-page">
+    <header class="viewer-header">
+      <h1>📺 PhoneCam Viewer</h1>
+      <span id="connBadge" class="badge"><span class="dot"></span><span id="connText">서버 연결 중…</span></span>
+      <div class="spacer"></div>
+      <span>휴대폰 접속 주소:</span>
+      <span id="addr" class="addr">…</span>
+      <button id="qrBtn" class="btn" style="padding:6px 14px; font-size:13px;">QR 보기</button>
+    </header>
+
+    <main class="stage">
+      <div id="emptyState" class="empty-state">
+        <h2>휴대폰 카메라를 연결하세요</h2>
+        <img id="qrImg" class="qr" alt="접속 QR 코드" />
+        <div class="addr-big" id="addrBig">…</div>
+        <div id="altAddrs" class="steps hidden" style="font-size:12px;"></div>
+        <div class="steps">
+          1️⃣ 휴대폰을 <b>이 컴퓨터와 같은 Wi-Fi</b>에 연결<br />
+          2️⃣ 휴대폰 카메라로 위 QR 코드 스캔 (또는 주소 직접 입력)<br />
+          3️⃣ 보안 경고가 나오면 <b>고급 → 이동(계속)</b> 선택<br />
+          4️⃣ <b>[방송 시작]</b>을 누르고 카메라 권한 허용
+        </div>
+      </div>
+      <div id="grid" class="grid"></div>
+    </main>
+  </div>
+
+  <script src="/viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "name": "phone-cam-viewer",
+  "version": "1.0.0",
+  "description": "스마트폰 카메라 영상을 실시간으로 데스크톱에서 보는 프로그램",
+  "main": "main.js",
+  "author": "bewe",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/signaling-test.js",
+    "test:e2e": "node test/e2e-test.js && node test/fallback-e2e-test.js",
+    "dist:linux": "electron-builder --linux",
+    "dist:win": "electron-builder --win",
+    "dist": "electron-builder --linux --win"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^2.4.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "playwright-core": "^1.61.1"
+  },
+  "build": {
+    "appId": "kr.co.bewe.phonecamviewer",
+    "productName": "PhoneCam Viewer",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "server/**/*",
+      "public/**/*",
+      "assets/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "assets/icon.png"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.png",
+      "signAndEditExecutable": false
+    }
+  }
+}
