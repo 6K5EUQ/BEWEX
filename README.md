@@ -46,6 +46,8 @@ npm run dist:win     # Windows portable .exe → release/
 
 - Linux에서 Windows용 빌드는 그대로 동작하지만, 실행파일에 아이콘/버전 정보를
   넣으려면 Windows에서 빌드하세요 (`signAndEditExecutable` 옵션 참고).
+- AppImage 실행에는 FUSE가 필요합니다. Ubuntu 22.04+에서는 `sudo apt install libfuse2`,
+  또는 FUSE 없이 `./PhoneCam\ Viewer-*.AppImage --appimage-extract-and-run`으로 실행하세요.
 
 ## 구조
 
