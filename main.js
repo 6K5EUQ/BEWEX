@@ -1,5 +1,5 @@
 // Electron 메인 프로세스: 내장 서버를 켜고 뷰어 창을 띄운다.
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, desktopCapturer, dialog, session } = require('electron');
 const path = require('path');
 const { startServer } = require('./server/server');
 
@@ -72,7 +72,15 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
-  app.whenReady().then(createWindow);
+  app.whenReady().then(() => {
+    // 뷰어 페이지의 화면 공유(getDisplayMedia) 요청 시 주 화면을 캡처해 준다
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      desktopCapturer.getSources({ types: ['screen'] })
+        .then((sources) => callback(sources.length ? { video: sources[0] } : {}))
+        .catch(() => callback({}));
+    });
+    createWindow();
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

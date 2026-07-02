@@ -72,6 +72,9 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
   const ips = getLanIPs();
   const { key, cert } = loadOrCreateCert(certDir, ips);
   const viewerToken = crypto.randomBytes(16).toString('hex');
+  // 외부 기기(휴대폰 등)에서 시청할 때 입력하는 PIN — 실행마다 새로 생성
+  const watchPin = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  const pinFails = new Map(); // IP별 PIN 오입력 횟수 (10회 초과 시 차단, 재시작 전까지)
 
   const app = express();
   const publicDir = path.join(__dirname, '..', 'public');
@@ -102,8 +105,11 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
       mobileUrl,
       qr: await QRCode.toDataURL(mobileUrl, { margin: 1, width: 240 }),
     };
-    // 스트림 시청 권한은 이 PC(데스크톱 앱)에서 연 뷰어에게만 준다.
-    if (isLocalhost(req)) info.viewerToken = viewerToken;
+    // 시청 토큰·PIN은 이 PC(데스크톱 앱)의 요청에만 알려 준다.
+    if (isLocalhost(req)) {
+      info.viewerToken = viewerToken;
+      info.watchPin = watchPin;
+    }
     res.json(info);
   });
 
@@ -124,8 +130,9 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
   };
   const byRole = (role) => [...clients.values()].filter((c) => c.role === role);
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     const id = String(nextId++);
+    const remoteIp = (req && req.socket && req.socket.remoteAddress) || '';
     let me = null;
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
@@ -138,23 +145,35 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
       if (msg.type === 'register') {
         if (me) return;
         const role = msg.role === 'viewer' ? 'viewer' : 'broadcaster';
-        if (role === 'viewer' && msg.token !== viewerToken) {
-          send({ ws }, { type: 'error', reason: 'unauthorized' });
-          ws.close(4001, 'unauthorized');
-          return;
+        if (role === 'viewer') {
+          // 데스크톱 앱은 토큰으로, 외부 기기는 PIN으로 인증
+          const okToken = msg.token === viewerToken;
+          const fails = pinFails.get(remoteIp) || 0;
+          const okPin = typeof msg.pin === 'string' && fails < 10 && msg.pin === watchPin;
+          if (!okToken && !okPin) {
+            if (typeof msg.pin === 'string') pinFails.set(remoteIp, fails + 1);
+            send({ ws }, { type: 'error', reason: 'unauthorized' });
+            ws.close(4001, 'unauthorized');
+            return;
+          }
+          if (okPin) pinFails.delete(remoteIp);
         }
         const name = String(msg.name || '').trim().slice(0, 30) || `카메라 ${id}`;
-        me = { id, ws, role, name, fallback: false };
+        const kind = msg.kind === 'screen' ? 'screen' : 'camera';
+        const tag = typeof msg.tag === 'string' ? msg.tag.slice(0, 32) : undefined;
+        me = { id, ws, role, name, kind, tag, fallback: false };
         clients.set(id, me);
         if (role === 'viewer') {
           send(me, {
             type: 'registered',
             id,
-            broadcasters: byRole('broadcaster').map((b) => ({ id: b.id, name: b.name, fallback: b.fallback })),
+            broadcasters: byRole('broadcaster').map((b) => ({
+              id: b.id, name: b.name, kind: b.kind, tag: b.tag, fallback: b.fallback,
+            })),
           });
         } else {
           send(me, { type: 'registered', id });
-          for (const v of byRole('viewer')) send(v, { type: 'broadcaster-joined', id, name });
+          for (const v of byRole('viewer')) send(v, { type: 'broadcaster-joined', id, name, kind, tag });
         }
         return;
       }

@@ -17,8 +17,15 @@
 
   let ws = null;
   let viewerToken = null;
+  let watchPinEntered = null; // 원격 시청 모드에서 입력한 PIN
+  let remoteMode = false;     // 데스크톱 앱(localhost)이 아닌 외부 기기에서 연 경우
+  let remoteReady = false;    // 원격 모드에서 PIN 인증 완료 여부
+  let serverPort = null;
   let reconnectTimer = null;
   let showQrAlways = false;
+
+  // 내가 송출하는 화면 공유를 내 그리드에서 숨기기 위한 식별 태그
+  const SELF_TAG = Math.random().toString(36).slice(2, 14);
 
   // broadcasterId -> {id, name, fallback, pc, pendingIce, el, video, img, connecting, modeEl, muteBtn, gotMedia}
   const tiles = new Map();
@@ -31,9 +38,14 @@
   function updateStage() {
     const hasTiles = tiles.size > 0;
     grid.classList.toggle('hidden', !hasTiles);
-    emptyState.classList.toggle('hidden', hasTiles && !showQrAlways);
-    if (hasTiles) setConn('ok', `카메라 ${tiles.size}대 연결됨`);
-    else if (ws && ws.readyState === WebSocket.OPEN) setConn('ok', '휴대폰 연결 대기 중');
+    if (remoteMode) {
+      emptyState.classList.add('hidden');
+      document.getElementById('remoteEmpty').classList.toggle('hidden', hasTiles || !remoteReady);
+    } else {
+      emptyState.classList.toggle('hidden', hasTiles && !showQrAlways);
+    }
+    if (hasTiles) setConn('ok', `스트림 ${tiles.size}개 연결됨`);
+    else if (ws && ws.readyState === WebSocket.OPEN) setConn('ok', remoteMode ? '방송 대기 중' : '휴대폰 연결 대기 중');
   }
 
   qrBtn.addEventListener('click', () => {
@@ -211,7 +223,7 @@
     ws = new WebSocket(`wss://${location.host}/ws`);
 
     ws.onopen = () => {
-      wsSend({ type: 'register', role: 'viewer', token: viewerToken });
+      wsSend({ type: 'register', role: 'viewer', token: viewerToken || undefined, pin: watchPinEntered || undefined });
     };
 
     ws.onmessage = (ev) => {
@@ -223,7 +235,16 @@
     ws.onclose = (ev) => {
       for (const id of [...tiles.keys()]) removeTile(id);
       if (ev.code === 4001) {
-        setConn('err', '시청 권한 없음 (데스크톱 앱에서만 시청 가능)');
+        if (remoteMode) {
+          // PIN 불일치 → 게이트 다시 표시
+          remoteReady = false;
+          document.getElementById('remoteEmpty').classList.add('hidden');
+          document.getElementById('pinGate').classList.remove('hidden');
+          document.getElementById('pinMsg').textContent = 'PIN이 올바르지 않습니다. 다시 확인해 주세요.';
+          setConn('err', '인증 실패');
+        } else {
+          setConn('err', '시청 권한 없음');
+        }
         return;
       }
       setConn('err', '서버 재연결 중…');
@@ -233,6 +254,7 @@
   }
 
   function watchBroadcaster(b) {
+    if (b.tag && b.tag === SELF_TAG) return; // 내가 켠 화면 공유는 내 화면에 띄우지 않음
     const tile = createTile(b.id, b.name);
     tile.fallback = !!b.fallback;
     // 보조 모드 방송자에게도 watch를 보낸다 — 휴대폰이 WebRTC 복귀를 재시도하고,
@@ -244,12 +266,17 @@
   function handleMessage(msg) {
     switch (msg.type) {
       case 'registered':
-        setConn('ok', '휴대폰 연결 대기 중');
+        if (remoteMode) {
+          remoteReady = true;
+          document.getElementById('pinGate').classList.add('hidden');
+          document.getElementById('pinMsg').textContent = '';
+        }
+        setConn('ok', remoteMode ? '방송 대기 중' : '휴대폰 연결 대기 중');
         for (const b of msg.broadcasters || []) watchBroadcaster(b);
         updateStage();
         break;
       case 'broadcaster-joined':
-        watchBroadcaster({ id: msg.id, name: msg.name, fallback: false });
+        watchBroadcaster({ id: msg.id, name: msg.name, kind: msg.kind, tag: msg.tag, fallback: false });
         break;
       case 'broadcaster-left':
         removeTile(msg.id);
@@ -296,6 +323,132 @@
     }
   }
 
+  // ---------- 화면 공유 (이 PC 화면을 다른 기기로 송출) ----------
+  let sharing = false;
+  let shareWs = null;
+  let shareStream = null;
+  const sharePcs = new Map();     // watcherId -> RTCPeerConnection
+  const sharePending = new Map(); // watcherId -> candidate[]
+
+  function shareSend(msg) {
+    if (shareWs && shareWs.readyState === WebSocket.OPEN) shareWs.send(JSON.stringify(msg));
+  }
+
+  function shareClosePeer(watcherId) {
+    sharePending.delete(watcherId);
+    const pc = sharePcs.get(watcherId);
+    if (pc) {
+      sharePcs.delete(watcherId);
+      try { pc.close(); } catch (_) {}
+    }
+  }
+
+  async function shareStartPeer(watcherId) {
+    shareClosePeer(watcherId);
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+    sharePcs.set(watcherId, pc);
+    sharePending.set(watcherId, []);
+    for (const t of shareStream.getTracks()) pc.addTrack(t, shareStream);
+    pc.onicecandidate = (e) => {
+      if (e.candidate) shareSend({ type: 'ice', target: watcherId, candidate: e.candidate });
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed') shareClosePeer(watcherId);
+    };
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      shareSend({ type: 'offer', target: watcherId, sdp: pc.localDescription });
+    } catch (_) {
+      shareClosePeer(watcherId);
+    }
+  }
+
+  function connectShareWS() {
+    shareWs = new WebSocket(`wss://${location.host}/ws`);
+    shareWs.onopen = () => {
+      shareSend({ type: 'register', role: 'broadcaster', name: 'PC 화면', kind: 'screen', tag: SELF_TAG });
+    };
+    shareWs.onmessage = async (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch (_) { return; }
+      switch (msg.type) {
+        case 'watch':
+          shareStartPeer(msg.from);
+          break;
+        case 'answer': {
+          const pc = sharePcs.get(msg.from);
+          if (!pc) break;
+          try {
+            await pc.setRemoteDescription(msg.sdp);
+            for (const c of sharePending.get(msg.from) || []) await pc.addIceCandidate(c).catch(() => {});
+            sharePending.set(msg.from, []);
+          } catch (_) {}
+          break;
+        }
+        case 'ice': {
+          const pc = sharePcs.get(msg.from);
+          if (!pc || !msg.candidate) break;
+          if (!pc.remoteDescription) {
+            if (!sharePending.has(msg.from)) sharePending.set(msg.from, []);
+            sharePending.get(msg.from).push(msg.candidate);
+          } else {
+            pc.addIceCandidate(msg.candidate).catch(() => {});
+          }
+          break;
+        }
+        case 'viewer-left':
+          shareClosePeer(msg.id);
+          break;
+        default:
+          break;
+      }
+    };
+    shareWs.onclose = () => {
+      for (const id of [...sharePcs.keys()]) shareClosePeer(id);
+      if (sharing) setTimeout(connectShareWS, 2000);
+    };
+  }
+
+  function stopScreenShare() {
+    if (!sharing) return;
+    sharing = false;
+    for (const id of [...sharePcs.keys()]) shareClosePeer(id);
+    if (shareWs) {
+      try { shareWs.close(); } catch (_) {}
+      shareWs = null;
+    }
+    if (shareStream) {
+      for (const t of shareStream.getTracks()) t.stop();
+      shareStream = null;
+    }
+    const btn = document.getElementById('shareBtn');
+    btn.textContent = '🖥️ 화면 공유';
+    btn.classList.remove('danger');
+  }
+
+  async function toggleScreenShare() {
+    if (sharing) {
+      stopScreenShare();
+      return;
+    }
+    try {
+      shareStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30 } }, audio: false });
+    } catch (_) {
+      return; // 사용자가 취소했거나 캡처 불가
+    }
+    const track = shareStream.getVideoTracks()[0];
+    if (track) {
+      try { track.contentHint = 'detail'; } catch (_) {} // 텍스트 위주 화면 선명도 우선
+      track.addEventListener('ended', stopScreenShare);  // 시스템 UI로 공유를 끈 경우
+    }
+    sharing = true;
+    const btn = document.getElementById('shareBtn');
+    btn.textContent = '⏹ 공유 중지';
+    btn.classList.add('danger');
+    connectShareWS();
+  }
+
   // ---------- 시작 ----------
   async function init() {
     let info;
@@ -307,9 +460,49 @@
       return;
     }
 
+    serverPort = info.port;
+
+    if (!info.viewerToken) {
+      // 외부 기기(휴대폰 등)에서 연 경우: PIN 인증 후 시청만 가능
+      remoteMode = true;
+      addrEl.classList.add('hidden');
+      qrBtn.classList.add('hidden');
+      document.getElementById('addrLabel').classList.add('hidden');
+      emptyState.classList.add('hidden');
+      const pinGate = document.getElementById('pinGate');
+      const pinInput = document.getElementById('pinInput');
+      const submitPin = () => {
+        const pin = pinInput.value.trim();
+        if (!/^\d{6}$/.test(pin)) {
+          document.getElementById('pinMsg').textContent = '6자리 숫자를 입력해 주세요.';
+          return;
+        }
+        watchPinEntered = pin;
+        pinGate.classList.add('hidden');
+        setConn('warn', '인증 중…');
+        if (ws) { try { ws.close(); } catch (_) {} }
+        clearTimeout(reconnectTimer);
+        connectWS();
+      };
+      document.getElementById('pinBtn').addEventListener('click', submitPin);
+      pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+      pinGate.classList.remove('hidden');
+      setConn('warn', 'PIN 입력 대기');
+      return;
+    }
+
     addrEl.textContent = info.mobileUrl;
     addrBig.textContent = info.mobileUrl;
     qrImg.src = info.qr;
+
+    // 시청 PIN 표시 + 화면 공유 버튼 (데스크톱 앱 전용)
+    if (info.watchPin) {
+      document.getElementById('pinText').textContent = info.watchPin;
+      document.getElementById('pinBadge').classList.remove('hidden');
+    }
+    const shareBtn = document.getElementById('shareBtn');
+    shareBtn.classList.remove('hidden');
+    shareBtn.addEventListener('click', toggleScreenShare);
 
     // 접속 주소 선택: 인터페이스가 여러 개면(예: 학교망 + Tailscale) 골라서 QR을 바꿀 수 있다
     const ips = info.ips || [];
@@ -359,10 +552,6 @@
       renderSteps(ips[0]);
     }
 
-    if (!info.viewerToken) {
-      setConn('err', '이 페이지는 PhoneCam 데스크톱 앱에서만 시청할 수 있습니다');
-      return;
-    }
     viewerToken = info.viewerToken;
     connectWS();
   }

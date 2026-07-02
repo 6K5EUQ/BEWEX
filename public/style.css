@@ -242,11 +242,24 @@ button {
   user-select: all;
 }
 
-/* 스트림 그리드 */
+.empty-state .pin-input {
+  width: 140px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-2);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 20px;
+  letter-spacing: 6px;
+  text-align: center;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+/* 스트림 그리드 (휴대폰 화면에서도 넘치지 않게) */
 .grid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
 }
 .tile {
   position: relative;
@@ -271,6 +284,14 @@ button {
   padding: 8px 12px;
   background: linear-gradient(transparent, rgba(0,0,0,.75));
   font-size: 13px;
+  /* 평소에는 영상을 가리지 않도록 숨기고, 마우스를 올리면 표시 */
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+.tile:hover .tile-bar {
+  opacity: 1;
+  pointer-events: auto;
 }
 .tile .tile-bar .name { font-weight: 700; }
 .tile .tile-bar .spacer { flex: 1; }

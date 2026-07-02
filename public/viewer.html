@@ -11,10 +11,12 @@
     <header class="viewer-header">
       <h1>📺 PhoneCam Viewer</h1>
       <span id="connBadge" class="badge"><span class="dot"></span><span id="connText">서버 연결 중…</span></span>
+      <span id="pinBadge" class="badge hidden" title="외부 기기에서 시청할 때 입력하는 PIN">시청 PIN: <b id="pinText" style="margin-left:4px; letter-spacing:2px; color:var(--accent);"></b></span>
       <div class="spacer"></div>
-      <span>휴대폰 접속 주소:</span>
+      <span id="addrLabel">휴대폰 접속 주소:</span>
       <span id="addr" class="addr">…</span>
       <button id="qrBtn" class="btn" style="padding:6px 14px; font-size:13px;">QR 보기</button>
+      <button id="shareBtn" class="btn hidden" style="padding:6px 14px; font-size:13px;">🖥️ 화면 공유</button>
     </header>
 
     <main class="stage">
@@ -29,6 +31,19 @@
           3️⃣ 보안 경고가 나오면 <b>고급 → 이동(계속)</b> 선택<br />
           4️⃣ <b>[방송 시작]</b>을 누르고 카메라 권한 허용
         </div>
+      </div>
+      <div id="pinGate" class="empty-state hidden">
+        <h2>🔒 시청 PIN 입력</h2>
+        <p style="color:var(--muted); font-size:14px; margin:0;">데스크톱 앱 상단에 표시된 6자리 PIN을 입력하세요.</p>
+        <div style="display:flex; gap:10px;">
+          <input id="pinInput" class="pin-input" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="000000" />
+          <button id="pinBtn" class="btn primary" style="padding:12px 22px;">시청</button>
+        </div>
+        <div id="pinMsg" style="color:var(--danger); font-size:13px; min-height:18px;"></div>
+      </div>
+      <div id="remoteEmpty" class="empty-state hidden">
+        <h2>방송 대기 중</h2>
+        <p style="color:var(--muted); font-size:14px;">PC에서 [🖥️ 화면 공유]를 켜거나 휴대폰 카메라 방송을 시작하면 여기에 표시됩니다.</p>
       </div>
       <div id="grid" class="grid"></div>
     </main>

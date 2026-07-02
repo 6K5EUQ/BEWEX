@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node test/signaling-test.js",
-    "test:e2e": "node test/e2e-test.js && node test/fallback-e2e-test.js",
+    "test:e2e": "node test/e2e-test.js && node test/fallback-e2e-test.js && node test/screenshare-e2e-test.js",
     "dist:linux": "electron-builder --linux",
     "dist:win": "electron-builder --win",
     "dist": "electron-builder --linux --win"
