@@ -225,6 +225,16 @@ button {
   line-height: 2;
   text-align: left;
 }
+.empty-state .addr-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--panel-2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  max-width: 90%;
+}
 .empty-state .addr-big {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: 18px;

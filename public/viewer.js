@@ -311,12 +311,52 @@
     addrBig.textContent = info.mobileUrl;
     qrImg.src = info.qr;
 
-    // 자동 선택된 주소로 접속이 안 될 때를 위한 대체 주소 안내
-    const alts = (info.ips || []).slice(1);
-    if (alts.length > 0) {
-      const el = document.getElementById('altAddrs');
-      el.textContent = '접속이 안 되면: ' + alts.map((ip) => `https://${ip}:${info.port}/mobile`).join('  ·  ');
-      el.classList.remove('hidden');
+    // 접속 주소 선택: 인터페이스가 여러 개면(예: 학교망 + Tailscale) 골라서 QR을 바꿀 수 있다
+    const ips = info.ips || [];
+    const isTailscale = (ip) => /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip);
+    const ipLabel = (ip) => {
+      if (isTailscale(ip)) return 'Tailscale — 외부(LTE)에서 접속';
+      if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) return '같은 네트워크(Wi-Fi)용';
+      return '유선/공인망용';
+    };
+    const renderSteps = (ip) => {
+      const first = isTailscale(ip)
+        ? '1️⃣ 휴대폰에 <b>Tailscale 앱</b>을 설치하고 같은 계정으로 로그인 (연결 켜기)'
+        : '1️⃣ 휴대폰을 <b>이 컴퓨터와 같은 Wi-Fi</b>에 연결';
+      document.getElementById('steps').innerHTML = `${first}<br />
+        2️⃣ 휴대폰 카메라로 위 QR 코드 스캔 (또는 주소 직접 입력)<br />
+        3️⃣ 보안 경고가 나오면 <b>고급 → 이동(계속)</b> 선택<br />
+        4️⃣ <b>[방송 시작]</b>을 누르고 카메라 권한 허용`;
+    };
+    const applyAddress = async (ip) => {
+      localStorage.setItem('phonecam-addr-ip', ip);
+      const url = `https://${ip}:${info.port}/mobile`;
+      addrEl.textContent = url;
+      addrBig.textContent = url;
+      renderSteps(ip);
+      try {
+        const r = await fetch('/api/qr?ip=' + encodeURIComponent(ip));
+        const d = await r.json();
+        if (d.qr) qrImg.src = d.qr;
+      } catch (_) { /* QR 갱신 실패 시 주소 텍스트는 이미 갱신됨 */ }
+    };
+    if (ips.length > 1) {
+      const sel = document.getElementById('addrSelect');
+      for (const ip of ips) {
+        const opt = document.createElement('option');
+        opt.value = ip;
+        opt.textContent = `${ip} — ${ipLabel(ip)}`;
+        sel.appendChild(opt);
+      }
+      const saved = localStorage.getItem('phonecam-addr-ip');
+      const current = ips.includes(saved) ? saved : ips[0];
+      sel.value = current;
+      sel.addEventListener('change', () => applyAddress(sel.value));
+      sel.classList.remove('hidden');
+      if (current !== ips[0]) await applyAddress(current);
+      else renderSteps(current);
+    } else if (ips.length === 1) {
+      renderSteps(ips[0]);
     }
 
     if (!info.viewerToken) {

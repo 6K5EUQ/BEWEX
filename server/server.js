@@ -107,6 +107,13 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
     res.json(info);
   });
 
+  // 뷰어에서 접속 주소(예: Wi-Fi ↔ Tailscale)를 바꿔 고르면 해당 주소의 QR을 다시 생성
+  app.get('/api/qr', async (req, res) => {
+    const ip = String(req.query.ip || '');
+    if (!ips.includes(ip)) return res.status(400).json({ error: 'unknown ip' });
+    res.json({ qr: await QRCode.toDataURL(`https://${ip}:${port}/mobile`, { margin: 1, width: 240 }) });
+  });
+
   // ---------------- WebSocket 시그널링 ----------------
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8 * 1024 * 1024 });
   let nextId = 1;
