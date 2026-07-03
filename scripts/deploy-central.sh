@@ -127,6 +127,10 @@ else
   REMOTE_USER="$(ssh "$HOST" 'id -un')"
   REMOTE_HOME="$(ssh "$HOST" 'echo "$HOME"')"
 
+  # 공개(표시/QR) 주소는 대상 IP(Tailscale 등)로 고정한다.
+  # BEWE_PUBLIC_HOST 환경변수로 덮어쓸 수 있고, 기본값은 배포 대상 IP.
+  PUBLIC_HOST="${BEWE_PUBLIC_HOST:-$HOST_IP}"
+
   # 템플릿을 원격 환경 값으로 치환.
   #   /home/%i → 실제 홈 먼저 치환한 뒤 남은 %i → 사용자명 (홈이 비표준이어도 정확)
   UNIT_CONTENT="$(sed \
@@ -134,6 +138,7 @@ else
     -e "s|%i|$REMOTE_USER|g" \
     -e "s|/usr/bin/node|$REMOTE_NODE|g" \
     -e "s|BEWE_PORT=8443|BEWE_PORT=$PORT|g" \
+    -e "s|__PUBLIC_HOST__|$PUBLIC_HOST|g" \
     "$ROOT/deploy/bewe-server.service")"
 
   # 생성한 유닛을 원격 홈에 먼저 두고(비파괴), sudo 로 시스템 위치에 설치

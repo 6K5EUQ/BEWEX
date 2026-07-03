@@ -126,7 +126,12 @@ npm run start:monitor       # npm start 와 동일
 | 대상 | 변수 | 기본값 |
 |------|------|--------|
 | Ingest Hub / Mission Monitor 앱 | `BEWE_CENTRAL` (호스트), `BEWE_PORT` (포트) | `100.123.59.3` / `8443` |
-| 서버(standalone) | `BEWE_PORT` (리슨 포트), `BEWE_CERT_DIR` (인증서 경로) | `8443` / `~/.config/bewe-server/cert` |
+| 서버(standalone) | `BEWE_PORT` (리슨 포트), `BEWE_CERT_DIR` (인증서 경로), `BEWE_PUBLIC_HOST` (공개 주소 고정) | `8443` / `~/.config/bewe-server/cert` / (미설정=자동 감지) |
+
+`BEWE_PUBLIC_HOST`를 지정하면 `/api/info`·QR·접속 주소가 그 주소 **하나로 고정**됩니다
+(예: Tailscale IP `100.123.59.3`). 인증서(SAN)는 그래도 모든 로컬 IP를 커버하므로
+localhost·LAN 접속에서도 경고 없이 붙습니다. `deploy:central`은 배포 대상 IP를
+자동으로 이 값에 넣습니다.
 
 예:
 

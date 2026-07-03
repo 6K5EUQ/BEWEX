@@ -79,8 +79,15 @@ function listenOnce(server, port) {
 }
 
 async function startServer({ certDir, preferredPort = 8443 } = {}) {
-  const ips = getLanIPs();
-  const { key, cert } = loadOrCreateCert(certDir, ips);
+  const allIps = getLanIPs();
+  // 공개(표시/QR) 주소를 하나로 고정: BEWE_PUBLIC_HOST 가 있으면(예: Tailscale IP)
+  // /api/info·QR·mobileUrl 은 그 주소만 노출한다. 인증서(SAN)는 모든 IP를 계속
+  // 커버해 localhost·LAN 접속에서도 경고 없이 붙게 한다.
+  const publicHost = (process.env.BEWE_PUBLIC_HOST || '').trim();
+  const ips = publicHost ? [publicHost] : allIps;
+  const certIps =
+    publicHost && !allIps.includes(publicHost) ? [...allIps, publicHost] : allIps;
+  const { key, cert } = loadOrCreateCert(certDir, certIps);
 
   const app = express();
   const publicDir = path.join(__dirname, '..', 'public');

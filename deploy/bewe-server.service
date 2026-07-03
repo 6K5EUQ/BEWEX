@@ -20,6 +20,7 @@ User=%i
 WorkingDirectory=/home/%i/bewe-server
 ExecStart=/usr/bin/node /home/%i/bewe-server/server/standalone.js
 Environment=BEWE_PORT=8443
+Environment=BEWE_PUBLIC_HOST=__PUBLIC_HOST__
 Restart=always
 RestartSec=3
 
