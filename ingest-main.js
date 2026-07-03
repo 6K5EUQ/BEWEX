@@ -17,6 +17,15 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // 이게 있어야 getDisplayMedia 오디오 요청 시 PulseAudio/PipeWire 출력 루프백이 잡힌다.
 app.commandLine.appendSwitch('enable-features', 'PulseaudioLoopbackForScreenShare');
 
+// X11 세션에서 Electron 33은 창 목록을 PipeWire/xdg-desktop-portal 경로로 열거하려다
+// 실패해 desktopCapturer.getSources({types:['window']})가 빈 목록을 돌려주는 회귀가 있다.
+// X11에서는 portal 캡처러를 끄고 raw X11 열거로 돌려 창 목록이 채워지게 한다.
+// (Wayland 세션에서는 portal 경로가 정상이므로 건드리지 않는다.)
+if (process.env.XDG_SESSION_TYPE !== 'wayland') {
+  app.commandLine.appendSwitch('disable-features', 'WebRTCPipeWireCapturer');
+  app.commandLine.appendSwitch('ozone-platform', 'x11');
+}
+
 let win = null;
 let selectedSourceId = null;
 let retryTimer = null;
