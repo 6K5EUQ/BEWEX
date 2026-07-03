@@ -9,6 +9,12 @@ const path = require('path');
 const CENTRAL_HOST = process.env.BEWE_CENTRAL || '100.123.59.3';
 const CENTRAL_PORT = Number(process.env.BEWE_PORT) || 8443;
 
+// Ingest Hub / Mission Monitor 두 앱은 같은 package.json name('bewe-streaming')으로
+// 빌드되므로, 이름을 명시적으로 분리하지 않으면 userData 경로(~/.config/bewe-streaming)와
+// single-instance lock을 공유한다. 그러면 허브가 켜진 상태에서 모니터를 실행할 때
+// lock 획득에 실패해 모니터 창이 뜨지 않고 허브 창만 focus된다. → 앱별 이름을 지정해 분리.
+app.setName('bewe-monitor');
+
 // 모니터의 <video>가 사용자 클릭 없이도 재생되도록 허용
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
