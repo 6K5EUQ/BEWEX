@@ -54,7 +54,7 @@ function createWindow() {
     height: 860,
     minWidth: 760,
     minHeight: 520,
-    title: 'BEWE Ingest Hub',
+    title: 'BEWEX Hub',
     backgroundColor: '#111318',
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
@@ -64,6 +64,8 @@ function createWindow() {
     },
   });
   win.setMenuBarVisibility(false);
+  // 로드되는 페이지의 <title>이 창 제목을 덮어쓰지 않도록 고정한다.
+  win.on('page-title-updated', (e) => e.preventDefault());
   win.on('closed', () => {
     win = null;
     if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }

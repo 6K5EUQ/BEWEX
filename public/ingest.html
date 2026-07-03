@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BEWE Ingest Hub</title>
+  <title>BEWEX Hub</title>
   <link rel="stylesheet" href="/style.css" />
   <style>
     /* Ingest Hub 전용 스타일 */
@@ -64,14 +64,6 @@
       background: #fff;
       padding: 6px;
     }
-    .cam-addr {
-      font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-      font-size: 13px;
-      color: var(--accent);
-      user-select: all;
-      word-break: break-all;
-    }
-    .cam-hint { margin: 0; color: var(--muted); font-size: 12px; }
 
     /* APP 캡처 카드 */
     .app-card { grid-column: 1 / -1; }
@@ -139,6 +131,7 @@
       color: var(--muted);
     }
     .status-strip b { color: var(--text); font-weight: 600; }
+    .status-strip .spacer { flex: 1; }
 
     @media (max-width: 760px) {
       .cards { grid-template-columns: 1fr; }
@@ -148,8 +141,6 @@
 <body>
   <div class="ingest-page">
     <header class="ingest-header">
-      <h1>BEWE Ingest Hub</h1>
-      <span id="connBadge" class="badge"><span class="dot"></span><span id="connText">서버 연결 중…</span></span>
       <div class="spacer"></div>
       <label id="addrLabel" for="addrSelect">접속 주소</label>
       <select id="addrSelect" title="휴대폰이 접속할 주소 선택"></select>
@@ -163,8 +154,6 @@
           <span id="slotBadge1" class="badge"><span class="dot"></span><span id="slotText1">대기</span></span>
         </div>
         <img id="qr1" class="qr" alt="CAM 1 접속 QR 코드" />
-        <div id="addr1" class="cam-addr">…</div>
-        <p class="cam-hint">휴대폰 1로 QR을 스캔한 뒤 <b>[방송 시작]</b>을 누르세요.</p>
       </section>
 
       <!-- 카메라 슬롯 2 -->
@@ -174,14 +163,11 @@
           <span id="slotBadge2" class="badge"><span class="dot"></span><span id="slotText2">대기</span></span>
         </div>
         <img id="qr2" class="qr" alt="CAM 2 접속 QR 코드" />
-        <div id="addr2" class="cam-addr">…</div>
-        <p class="cam-hint">휴대폰 2로 QR을 스캔한 뒤 <b>[방송 시작]</b>을 누르세요.</p>
       </section>
 
       <!-- APP 캡처 (슬롯 3) -->
       <section class="card app-card">
         <div class="card-head">
-          <h2>APP — 창 캡처</h2>
           <span id="slotBadge3" class="badge"><span class="dot"></span><span id="slotText3">대기</span></span>
         </div>
         <div id="appIdle" class="app-idle">
@@ -204,9 +190,9 @@
     </main>
 
     <footer class="status-strip">
-      <span>서버 <b id="srvAddr">…</b></span>
+      <div class="spacer"></div>
       <span>연결된 모니터 <b id="viewerCount">0</b></span>
-      <span id="slotSummary">슬롯: …</span>
+      <span id="connBadge" class="badge"><span class="dot"></span><span id="connText">서버 연결 중…</span></span>
     </footer>
   </div>
 

@@ -17,9 +17,7 @@
   const appPreview = $('appPreview');
   const appTitle = $('appTitle');
   const stopCaptureBtn = $('stopCaptureBtn');
-  const srvAddr = $('srvAddr');
   const viewerCountEl = $('viewerCount');
-  const slotSummary = $('slotSummary');
 
   const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   const CONNECT_TIMEOUT_MS = 10000; // 이 시간 안에 WebRTC 연결이 안 되면 보조 모드
@@ -45,14 +43,10 @@
     return '유선/공인망용';
   };
 
-  // 선택한 주소로 두 슬롯의 주소 텍스트와 QR을 함께 갱신
+  // 선택한 주소로 두 슬롯의 QR을 갱신
   async function applyAddress(ip) {
     localStorage.setItem('phonecam-addr-ip', ip);
     currentIp = ip;
-    srvAddr.textContent = `https://${ip}:${serverPort}`;
-    for (const n of [1, 2]) {
-      $(`addr${n}`).textContent = `https://${ip}:${serverPort}/mobile?slot=${n}`;
-    }
     await Promise.all([1, 2].map(async (n) => {
       try {
         const r = await fetch(`/api/qr?ip=${encodeURIComponent(ip)}&slot=${n}`);
@@ -84,8 +78,6 @@
         text.textContent = `WebRTC · ${st.name}`;
       }
     }
-    slotSummary.textContent = '슬롯: ' +
-      [1, 2, 3].map((n) => `${SLOT_LABEL[n]} ${slotState.has(n) ? '●' : '—'}`).join(' · ');
   }
 
   function addBroadcaster(b) {
@@ -516,8 +508,6 @@
 
     const ips = info.ips || [];
     if (ips.length === 0) {
-      srvAddr.textContent = `https://127.0.0.1:${serverPort}`;
-      for (const n of [1, 2]) $(`addr${n}`).textContent = '네트워크 인터페이스를 찾지 못했습니다';
       addrLabel.classList.add('hidden');
       addrSelect.classList.add('hidden');
     } else {
