@@ -332,6 +332,35 @@
     };
   }
 
+  // 시스템 내부 오디오(loopback) 트랙을 얻는다.
+  // Linux에서 getDisplayMedia는 기본적으로 오디오를 잡지 못하므로, Electron 메인이
+  // 잠깐 loopback 모드로 전환(setDisplayMediaRequestHandler가 audio:'loopback' 반환)한
+  // 상태에서 getDisplayMedia({video,audio})를 한 번 더 호출해 오디오만 추출한다.
+  // 이 소리는 이 PC의 "현재 출력 장치"가 내는 소리 = 노트북 전체 내부 오디오다.
+  async function getSystemAudioTrack() {
+    if (!window.ingestAPI || !window.ingestAPI.enableLoopbackAudio) return null;
+    try {
+      await window.ingestAPI.enableLoopbackAudio();
+      let loopStream = null;
+      try {
+        loopStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,   // 라이브러리 요구사항: dummy video 필요
+          audio: true,
+        });
+      } finally {
+        // 오디오 handler는 즉시 원래(창 캡처) 모드로 되돌린다
+        await window.ingestAPI.disableLoopbackAudio();
+      }
+      if (!loopStream) return null;
+      // 필요 없는 video 트랙은 버리고 audio 트랙만 남긴다
+      for (const t of loopStream.getVideoTracks()) { t.stop(); loopStream.removeTrack(t); }
+      return loopStream.getAudioTracks()[0] || null;
+    } catch (_) {
+      try { await window.ingestAPI.disableLoopbackAudio(); } catch (_) {}
+      return null;
+    }
+  }
+
   async function startCapture(sourceId, title) {
     if (capturing || !window.ingestAPI) return;
     closeWinList();
@@ -353,6 +382,14 @@
       return;
     }
     pickBtn.disabled = false;
+
+    // 시스템 내부 오디오(loopback)를 캡처 스트림에 합친다 (best-effort).
+    const audioTrack = await getSystemAudioTrack();
+    if (audioTrack && capStream) {
+      capStream.addTrack(audioTrack);
+    } else if (!audioTrack) {
+      appMsg.textContent = '시스템 오디오를 캡처하지 못해 영상만 송출합니다.';
+    }
 
     const track = capStream.getVideoTracks()[0];
     if (track) {

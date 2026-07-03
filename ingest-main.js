@@ -13,9 +13,15 @@ app.setName('bewe-ingest');
 // <video>가 사용자 클릭 없이 재생되도록 허용
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
+// Linux 시스템 오디오 loopback 캡처를 위한 Chromium feature 플래그.
+// 이게 있어야 getDisplayMedia 오디오 요청 시 PulseAudio/PipeWire 출력 루프백이 잡힌다.
+app.commandLine.appendSwitch('enable-features', 'PulseaudioLoopbackForScreenShare');
+
 let win = null;
 let selectedSourceId = null;
 let retryTimer = null;
+// 오디오 loopback 모드: true면 다음 getDisplayMedia에 시스템 오디오를 실어 보낸다.
+let audioLoopbackMode = false;
 
 const RETRY_MS = 5000;
 
@@ -136,6 +142,11 @@ if (!app.requestSingleInstanceLock()) {
       return true;
     });
 
+    // 오디오 loopback 모드 토글. renderer가 시스템 오디오를 뽑기 직전 enable을 부르고,
+    // getDisplayMedia 호출 뒤 곧바로 disable을 불러 원래(창 캡처) 모드로 되돌린다.
+    ipcMain.handle('ingest:enable-loopback-audio', () => { audioLoopbackMode = true; return true; });
+    ipcMain.handle('ingest:disable-loopback-audio', () => { audioLoopbackMode = false; return true; });
+
     // getDisplayMedia() 호출 시 캡처 대상 결정. Electron은 핸들러를 등록하지 않으면
     // getDisplayMedia를 거부하므로(Chromium과 달리 기본 picker가 없다) 양쪽 다 등록한다.
     // Wayland/PipeWire: getSources()가 소스를 딱 1개만 돌려주는데, 그 소스를 callback에
@@ -143,6 +154,14 @@ if (!app.requestSingleInstanceLock()) {
     // X11: 앱 자체 목록에서 고른 selectedSourceId로 OS 창 없이 바로 캡처.
     const isWayland = process.env.XDG_SESSION_TYPE === 'wayland';
     session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      // 오디오 loopback 모드: 시스템 오디오 + 아무 화면 소스(dummy video). renderer가
+      // video 트랙은 버리고 audio 트랙만 사용한다.
+      if (audioLoopbackMode) {
+        desktopCapturer.getSources({ types: ['screen'] })
+          .then((sources) => callback(sources[0] ? { video: sources[0], audio: 'loopback' } : {}))
+          .catch(() => callback({}));
+        return;
+      }
       if (isWayland) {
         desktopCapturer.getSources({ types: ['window', 'screen'] })
           .then((sources) => callback(sources[0] ? { video: sources[0] } : {}))
