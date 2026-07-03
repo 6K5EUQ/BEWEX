@@ -31,7 +31,7 @@ function loadOrCreateCert(certDir, ips) {
     // 없거나 손상된 경우 새로 생성
   }
 
-  const attrs = [{ name: 'commonName', value: 'BEWE Streaming' }];
+  const attrs = [{ name: 'commonName', value: 'BEWEX' }];
   const altNames = [
     { type: 2, value: 'localhost' },
     { type: 7, ip: '127.0.0.1' },

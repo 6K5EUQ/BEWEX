@@ -1,33 +1,64 @@
-# BEWE Streaming — 중앙 서버(라즈베리파이) 아키텍처
+# BEWEX — 중앙 서버(라즈베리파이) 스트리밍 관제
 
-휴대폰 카메라 2대와 PC 창(앱) 화면을 라즈베리파이 중앙 서버(central)로 모아
+휴대폰 카메라 2대와 PC 창 화면을 라즈베리파이 중앙 서버(central)로 모아
 송출하고, 3분할 관제 화면으로 시청하는 시스템입니다.
 
-서버는 라즈베리파이에서 headless로 상시 구동합니다. 폰 2대와 PC 화면은 전부
-central로 송신하고, Mission Monitor는 central 주소를 물어 수신합니다.
+## 동작 구조
 
-## 아키텍처
+- 세 개의 소스가 central로 영상을 보냅니다: **폰 2대**(브라우저로 접속) + **PC 창 1개**(BEWEX Hub 앱).
+- central은 라즈베리파이에서 headless로 상시 구동하며, 소스를 3개 슬롯에 배정하고
+  BEWEX Monitor로 중계합니다.
+- **BEWEX Monitor**는 central에 자동 접속해 3슬롯을 한 화면에 관제합니다.
+- 슬롯 3개 고정: 슬롯1 = **CAM 1**, 슬롯2 = **CAM 2**, 슬롯3 = **BEWE**(PC 창 캡처).
+- 기본 전송은 WebRTC(P2P). 막힌 네트워크에서는 서버 릴레이(RELAY)로 자동 전환.
 
 ```
-[폰1] ──https://100.123.59.3:8443/mobile?slot=1──┐
-[폰2] ──https://100.123.59.3:8443/mobile?slot=2──┼──▶ [ raspb2-central ]         ◀── [Mission Monitor 앱]
-[PC 화면] ─Ingest Hub 앱(central/ingest 로드,창캡처)┘      headless node 서버        (자동으로 100.123.59.3/monitor)
-                                                    Tailscale 100.123.59.3:8443    또는 브라우저 /monitor
+[폰1] ─┐
+[폰2] ─┼──▶ [ central 서버 ] ──▶ [BEWEX Monitor]
+[PC창] ─┘     (라파, headless)      CAM 1 / CAM 2 / BEWE
 ```
 
-- central: `raspb2-central`, Tailscale IP `100.123.59.3`, 포트 `8443`.
-  systemd 서비스(`bewe-server`)로 부팅 시 자동 구동.
-- 브라우저 페이지(`/mobile`, `/monitor`, `/ingest`)는 모두 central이 서빙하므로
-  접속 주소가 곧 central 주소입니다. QR 코드·WebSocket 주소도 central을 가리킵니다.
+BEWEX Hub / BEWEX Monitor 앱은 UI를 로컬 소스(`public/*.html`)에서 직접 로드하고
+central에는 WebSocket 시그널링·프레임만 붙습니다. 서버가 꺼져 있어도 창은 뜨고
+연결만 재시도합니다. 브라우저로 `/ingest`·`/monitor`를 열면 central이 같은 페이지를
+서빙하므로 동일하게 동작합니다.
 
 | 구성 | 실행 | 역할 |
 |------|------|------|
-| 중앙 서버 | `node server/standalone.js` (라파, systemd) | HTTPS+WebSocket 서버 상시 구동. 슬롯 배정/시그널링/프레임 릴레이, 폰·모니터·허브 페이지 서빙 |
-| BEWE Ingest Hub | `ingest-main.js` | PC에서 실행. central의 `/ingest`에 접속해 실행 중인 창을 골라 슬롯3(APP)으로 캡처 송출 |
-| BEWE Mission Monitor | `monitor-main.js` | 시작 시 central(`100.123.59.3`)에 자동 접속하는 관제 모니터. CAM 1 / CAM 2 / APP 고정 3슬롯, 미션 클록, 텔레메트리(해상도·fps·비트레이트·RTT) |
+| 중앙 서버 | `node server/standalone.js` (라파, systemd) | HTTPS+WebSocket 서버 상시 구동. 슬롯 배정/시그널링/프레임 릴레이, 폰(`/mobile`)·모니터(`/monitor`)·허브(`/ingest`) 페이지 서빙 |
+| BEWEX Hub | `ingest-main.js` | PC에서 실행. 로컬 UI를 띄우고 실행 중인 창을 골라 슬롯3(BEWE, 프로토콜상 `kind:'app'`)으로 캡처 송출 |
+| BEWEX Monitor | `monitor-main.js` | central에 자동 접속하는 관제 모니터. CAM 1 / CAM 2 / BEWE 고정 3슬롯, 미션 클록, 텔레메트리(해상도·fps·비트레이트·RTT) |
 
-모니터 UI(`/monitor`)는 central이 서빙하는 순수 웹 페이지라서, Monitor 앱 없이
-일반 브라우저에서 `https://100.123.59.3:8443/monitor`를 열어도 동일하게 동작합니다.
+모니터 UI(`/monitor`)는 순수 웹 페이지라서 BEWEX Monitor 앱 없이 일반 브라우저에서
+열어도 동일하게 동작합니다.
+
+## 설치 (클라이언트 PC)
+
+폰은 브라우저만 있으면 되고, PC 두 대(송출용·관제용)에만 앱을 깔면 됩니다.
+
+```bash
+git clone <repo> && cd BEWEX
+npm install                  # 의존성 설치 (최초 1회)
+```
+
+### 데스크톱 아이콘 생성 (Linux)
+
+바탕화면 아이콘이 이 저장소의 소스를 직접 실행합니다(빌드 불필요, `git pull`이면 최신).
+
+```bash
+npm run install:desktop      # BEWEX Hub + BEWEX Monitor 아이콘 둘 다 생성
+npm run install:ingest       # BEWEX Hub 아이콘만
+npm run install:monitor      # BEWEX Monitor 아이콘만
+```
+
+아이콘 없이 바로 실행:
+
+```bash
+npm run start:ingest         # BEWEX Hub (창 캡처 송출)
+npm run start:monitor        # BEWEX Monitor (3분할 관제)
+```
+
+> 아이콘이 "실행 안 됨"으로 나오면 우클릭 → 실행 허용(Allow Launching).
 
 ## 라즈베리파이 서버 배포
 
@@ -77,38 +108,40 @@ curl -sk https://127.0.0.1:8600/api/info    # {port, ips} 반환 확인
 
 Tailscale로 tailnet에 연결한 뒤 브라우저에서:
 
-- 슬롯1(CAM 1): `https://100.123.59.3:8443/mobile?slot=1`
-- 슬롯2(CAM 2): `https://100.123.59.3:8443/mobile?slot=2`
+- 슬롯1(CAM 1): `https://<central>/mobile?slot=1`
+- 슬롯2(CAM 2): `https://<central>/mobile?slot=2`
 
-또는 Ingest Hub 화면의 QR 코드 2개를 스캔합니다.
+가장 쉬운 방법은 BEWEX Hub 화면의 QR 코드 2개를 스캔하는 것입니다(주소를 몰라도 됨).
 
 - "연결이 비공개로 설정되어 있지 않습니다" 경고가 나오면 고급 → 이동(계속).
   (자체 서명 인증서라서 나오는 정상 경고)
 - [방송 시작] 버튼을 누르고 카메라 권한을 허용합니다.
 
-### 2) PC 화면 (APP)
+### 2) PC 화면 (BEWE)
 
-송출 PC에서 Ingest Hub 앱을 실행합니다.
+송출 PC에서 BEWEX Hub 앱을 실행합니다.
 
 ```bash
 npm run start:ingest
 ```
 
-- 앱이 central(`https://100.123.59.3:8443/ingest`)에 자동 접속합니다.
-  (서버가 꺼져 있으면 대기하다 켜지면 자동 로드)
-- APP 캡처 카드에서 [창 선택] → 송출할 창을 클릭하면 그 창만 슬롯3(APP)으로 송출됩니다.
+- 앱이 로컬 UI를 띄우고 WS만 central에 붙습니다.
+  (서버가 꺼져 있으면 창은 뜬 채로 연결만 재시도, 켜지면 자동 접속)
+- BEWE 캡처 카드에서 [창 선택] → 송출할 창을 클릭하면 그 창만 슬롯3(BEWE)으로 송출됩니다.
+- Wayland/PipeWire 세션에서는 창 클릭 시 OS 화면 선택 창(xdg-desktop-portal)이 떠서
+  실제 창을 고릅니다. X11은 앱 목록에서 고른 창을 바로 캡처합니다.
 
-### 3) 관제 (Mission Monitor)
+### 3) 관제 (BEWEX Monitor)
 
-관제 PC에서 Mission Monitor 앱을 실행합니다.
+관제 PC에서 BEWEX Monitor 앱을 실행합니다.
 
 ```bash
 npm run start:monitor       # npm start 와 동일
 ```
 
-- 앱이 시작 시 central(`100.123.59.3`)에 자동 접속합니다(꺼져 있으면 재시도 루프).
-- 수동 재접속은 시작 화면에서 주소를 바꿔 접속(기본값 `100.123.59.3:8443` 프리필).
-- 또는 브라우저에서 `https://100.123.59.3:8443/monitor` 접속.
+- 앱이 시작 시 central에 자동 접속합니다(꺼져 있으면 재시도 루프).
+- 수동 재접속은 시작 화면에서 주소를 바꿔 접속(기본 central 주소가 프리필됨).
+- 또는 브라우저에서 `https://<central>/monitor` 접속.
 - 레이아웃: 메인 1 + 사이드 2(사이드 클릭 시 메인 승격) ↔ 3등분 — `l` 키 또는 버튼으로 전환.
 - 패널 더블클릭 → 전체화면, 패널별 음소거 토글, 하단 미션 클록 `T+`.
 
@@ -118,7 +151,7 @@ npm run start:monitor       # npm start 와 동일
 
 | 대상 | 변수 | 기본값 |
 |------|------|--------|
-| Ingest Hub / Mission Monitor 앱 | `BEWE_CENTRAL` (호스트), `BEWE_PORT` (포트) | `100.123.59.3` / `8443` |
+| BEWEX Hub / BEWEX Monitor 앱 | `BEWE_CENTRAL` (호스트), `BEWE_PORT` (포트) | `100.123.59.3` / `8443` |
 | 서버(standalone) | `BEWE_PORT` (리슨 포트), `BEWE_CERT_DIR` (인증서 경로), `BEWE_PUBLIC_HOST` (공개 주소 고정) | `8443` / `~/.config/bewe-server/cert` / (미설정=자동 감지) |
 
 `BEWE_PUBLIC_HOST`를 지정하면 `/api/info`·QR·접속 주소가 그 주소 하나로 고정됩니다
@@ -155,56 +188,28 @@ BEWE_PORT=9000 npm run start:server
 ```bash
 npm install
 npm run server:local    # 로컬에서 중앙 서버만 띄워 검증 (BEWE_PORT로 포트 지정)
-npm run start:ingest    # Ingest Hub 실행 (central 접속)
-npm run start:monitor   # Mission Monitor 실행 (central 자동 접속, npm start와 동일)
+npm run start:ingest    # BEWEX Hub 실행 (central 접속)
+npm run start:monitor   # BEWEX Monitor 실행 (central 자동 접속, npm start와 동일)
 ```
 
 ## 테스트
 
 ```bash
 npm test                # 시그널링 서버 통합 테스트 (슬롯 배정/중계/relay 검증)
-npm run test:e2e        # 브라우저 E2E (모바일→모니터, 보조모드, APP 릴레이)
+npm run test:e2e        # 브라우저 E2E (모바일→모니터, 보조모드, BEWE 슬롯 릴레이)
 ```
 
 E2E 테스트는 Chrome이 필요합니다. 경로가 다르면 `CHROME_PATH` 환경변수로 지정하세요
 (기본 `/usr/bin/google-chrome`).
 
-## 빌드 (실행파일 만들기)
+## 코드 업데이트 · 아이콘 동작 (Linux)
 
-빌드 대상은 Ingest Hub / Mission Monitor 두 클라이언트 앱입니다.
-(서버는 라파에서 node로 직접 구동하므로 빌드 대상이 아닙니다.)
-
-```bash
-npm run dist:ingest:linux    # Ingest Hub Linux AppImage → release/ingest/
-npm run dist:ingest:win      # Ingest Hub Windows portable → release/ingest/
-npm run dist:monitor:linux   # Mission Monitor Linux AppImage → release/monitor/
-npm run dist:monitor:win     # Mission Monitor Windows portable → release/monitor/
-```
-
-- Linux에서 Windows용 빌드는 동작하지만, 아이콘/버전 정보를 넣으려면
-  Windows에서 빌드하세요(`signAndEditExecutable` 옵션 참고).
-- AppImage 실행에는 FUSE가 필요합니다. Ubuntu 22.04+에서는 `sudo apt install libfuse2`,
-  또는 FUSE 없이 `./앱이름-*.AppImage --appimage-extract-and-run`으로 실행.
-
-## 바탕화면 설치 (Linux) — 소스 직접 실행
-
-바탕화면 아이콘이 **이 저장소의 소스를 직접 실행**합니다(AppImage 빌드 불필요).
-따라서 `git pull`로 코드를 갱신하면 다음 아이콘 실행부터 최신 코드가 뜹니다. 재빌드 없음.
+데스크톱 아이콘은 이 저장소의 소스를 직접 실행하므로 코드 갱신에 재빌드가 필요 없습니다.
 
 ```bash
-git clone <repo> && cd bewe_streaming
-npm install                  # 최초 1회 (아이콘 최초 실행 시 자동 설치도 됨)
-npm run install:monitor      # Mission Monitor 바탕화면 아이콘 설치
-npm run install:ingest       # Ingest Hub 바탕화면 아이콘 설치
-npm run install:desktop      # 둘 다 설치
-```
-
-코드 업데이트 흐름:
-
-```bash
-cd bewe_streaming
+cd BEWEX
 git pull                     # 소스 갱신
-# 끝. 바탕화면 아이콘을 다시 누르면 최신 코드로 실행됨.
+# 끝. 아이콘을 다시 누르면 최신 코드로 실행됨.
 ```
 
 - 아이콘의 `Exec`은 `scripts/bewe-run.sh <ingest|monitor>`를 가리키며, 이 런처가
@@ -212,11 +217,8 @@ git pull                     # 소스 갱신
 - 런처는 nvm이 로드되지 않은 GUI 세션(GNOME 더블클릭)에서도 node를 찾도록 PATH를
   직접 보정하고, `node_modules`가 없거나 `package-lock.json`이 바뀌면 `npm ci`를 자동 실행합니다.
 - 저장소를 옮기면 아이콘의 경로가 깨지므로 `npm run install:desktop`을 다시 실행하세요.
-- 바탕화면 아이콘이 "실행 안 됨"으로 나오면: 아이콘 우클릭 → 실행 허용(Allow Launching).
+- 아이콘이 "실행 안 됨"으로 나오면 우클릭 → 실행 허용(Allow Launching).
   (스크립트가 GNOME 신뢰 플래그를 자동 설정하지만 일부 환경은 수동 허용 필요)
-
-> AppImage 빌드(`npm run dist:*`)는 배포용/윈도우용으로 여전히 유효하지만,
-> 바탕화면 아이콘 설치에는 더 이상 필요하지 않습니다.
 
 ## 구조
 
@@ -224,13 +226,13 @@ git pull                     # 소스 갱신
 server/standalone.js          중앙 서버 부트스트랩 (Electron 없이 순수 node — 라파 headless 상시 구동)
 server/server.js              HTTPS 정적 서버 + WebSocket 시그널링/슬롯 배정/프레임 릴레이
 server/cert.js                자체 서명 인증서 생성/재사용 (IP 변경 시 재생성)
-ingest-main.js                Ingest Hub Electron 메인 (central/ingest 로드 + 창 캡처 IPC)
-ingest-preload.js             Ingest Hub preload (창 목록/선택 API 브리지)
-monitor-main.js               Mission Monitor Electron 메인 (central 자동 접속 + 인증서 예외)
-monitor-preload.js            Mission Monitor preload (connect API 브리지)
+ingest-main.js                BEWEX Hub Electron 메인 (로컬 UI 로드 + 창 캡처 IPC + central 인증서 예외)
+ingest-preload.js             BEWEX Hub preload (창 목록/선택 API 브리지)
+monitor-main.js               BEWEX Monitor Electron 메인 (central 자동 접속 + 인증서 예외)
+monitor-preload.js            BEWEX Monitor preload (connect API 브리지)
 monitor-connect.html          모니터 시작/폴백 화면 (central 주소 프리필, 재시도)
 public/mobile.*               휴대폰 송출 페이지 (getUserMedia + WebRTC + 보조 모드)
-public/ingest.*               허브 UI (QR 2개, APP 캡처, 슬롯 상태판)
+public/ingest.*               허브 UI (QR 2개, BEWE 슬롯 창 캡처, 슬롯 상태판)
 public/monitor.*              관제 모니터 페이지 (순수 웹 — 브라우저에서도 동작)
 public/style.css              공용 스타일
 deploy/bewe-server.service    systemd 서비스 템플릿 (배포 스크립트가 사용자/경로 치환)
@@ -238,11 +240,8 @@ scripts/deploy-central.sh     라파 중앙 서버 배포 (rsync + npm install +
 scripts/run-server-local.sh   로컬에서 서버만 띄워 검증
 scripts/install-desktop.sh    Linux 바탕화면 아이콘 설치 (아이콘 → bewe-run.sh 연결)
 scripts/bewe-run.sh           소스 직접 실행 런처 (git pull 후 재빌드 없이 최신 코드 실행)
-scripts/dist.sh               electron-builder 빌드 래퍼 (배포/윈도우용)
 test/signaling-test.js        시그널링 통합 테스트
 test/e2e-test.js              모바일→모니터 E2E
 test/fallback-e2e-test.js     보조 모드(RELAY) E2E
-test/app-relay-e2e-test.js    APP 슬롯 릴레이 E2E
-electron-builder.ingest.json  Ingest Hub 빌드 설정
-electron-builder.monitor.json Mission Monitor 빌드 설정
+test/app-relay-e2e-test.js    BEWE 슬롯(창 캡처) 릴레이 E2E
 ```

@@ -1,7 +1,7 @@
 {
   "name": "bewe-streaming",
   "version": "2.0.0",
-  "description": "BEWE 스트리밍 — Ingest Hub(휴대폰 카메라 2대 + 창 캡처 송출 허브)와 Mission Monitor(SpaceX 스타일 3분할 관제 모니터)",
+  "description": "BEWEX 스트리밍 — BEWEX Hub(휴대폰 카메라 2대 + 창 캡처 송출 허브)와 BEWEX Monitor(SpaceX 스타일 3분할 관제 모니터)",
   "main": "ingest-main.js",
   "author": "bewe",
   "license": "MIT",
@@ -14,10 +14,6 @@
     "deploy:central": "bash scripts/deploy-central.sh",
     "test": "node test/signaling-test.js",
     "test:e2e": "node test/e2e-test.js && node test/fallback-e2e-test.js && node test/app-relay-e2e-test.js",
-    "dist:ingest:linux": "bash scripts/dist.sh ingest linux",
-    "dist:ingest:win": "bash scripts/dist.sh ingest win",
-    "dist:monitor:linux": "bash scripts/dist.sh monitor linux",
-    "dist:monitor:win": "bash scripts/dist.sh monitor win",
     "install:ingest": "bash scripts/install-desktop.sh ingest",
     "install:monitor": "bash scripts/install-desktop.sh monitor",
     "install:desktop": "bash scripts/install-desktop.sh both"
@@ -30,7 +26,6 @@
   },
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
     "playwright-core": "^1.61.1"
   }
 }

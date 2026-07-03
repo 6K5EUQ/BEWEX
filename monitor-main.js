@@ -1,4 +1,4 @@
-// Mission Monitor: 시작 시 곧바로 central의 /monitor 를 로드하고, 실패 시 접속 화면으로 폴백해 5초마다 재시도한다.
+// BEWEX Monitor: 시작 시 곧바로 central의 /monitor 를 로드하고, 실패 시 접속 화면으로 폴백해 5초마다 재시도한다.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
@@ -70,7 +70,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 500,
-    title: 'BEWE Mission Monitor',
+    title: 'BEWEX Monitor',
     backgroundColor: '#05070a',
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {

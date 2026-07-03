@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>BEWE Mission Monitor — 접속</title>
+  <title>BEWEX Monitor — 접속</title>
   <style>
     /* 접속 화면 전용 스타일 */
     :root {
@@ -123,8 +123,8 @@
 </head>
 <body>
   <div class="card">
-    <h1>BEWE<span class="accent"> · </span>Mission Monitor</h1>
-    <div class="sub">Ingest Hub Connect</div>
+    <h1>BEWEX<span class="accent"> · </span>Monitor</h1>
+    <div class="sub">BEWEX Connect</div>
 
     <form id="connectForm">
       <input id="hostInput" placeholder="허브 IP 또는 IP:포트" autocomplete="off" spellcheck="false" autofocus />
@@ -202,7 +202,7 @@
       async function connect(host, port) {
         if (!window.monitorAPI) {
           msg.className = 'msg';
-          msg.textContent = '이 화면은 BEWE Mission Monitor 앱 안에서만 동작합니다.';
+          msg.textContent = '이 화면은 BEWEX Monitor 앱 안에서만 동작합니다.';
           return;
         }
         saveRecent(host, port);

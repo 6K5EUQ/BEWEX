@@ -5,8 +5,8 @@
 // HTTP 라우트:
 //  - /          : /mobile 로 redirect
 //  - /mobile    : 휴대폰용 송출 페이지 (슬롯 1·2 카메라)
-//  - /ingest    : Ingest Hub UI 페이지
-//  - /monitor   : Mission Monitor 관제 페이지
+//  - /ingest    : BEWEX Hub UI 페이지
+//  - /monitor   : BEWEX Monitor 관제 페이지
 //  - /viewer    : 구버전 호환 — /monitor 로 301 redirect
 //  - /api/info  : {port, ips}
 //  - /api/qr    : ?ip=<ips 중 하나>&slot=<1|2|생략> → mobile 접속 QR dataURL
@@ -16,7 +16,7 @@
 //  방송자 → 서버 : {type:'register', role:'broadcaster', name?, slot?, kind?}
 //                  kind ∈ 'camera'|'screen'|'app' (기본 'camera'), slot: 1|2|3 (선택)
 //  뷰어   → 서버 : {type:'register', role:'viewer', observer?}
-//                  observer:true = Ingest Hub 상태판 — 이벤트는 받지만
+//                  observer:true = BEWEX Hub 상태판 — 이벤트는 받지만
 //                  frame 릴레이 대상에서 제외되고 viewer-count에도 미포함
 //  서버   → 등록자: 방송자 {type:'registered', id, slot} /
 //                  뷰어   {type:'registered', id, broadcasters:[{id,name,slot,kind,fallback}]}

@@ -1,4 +1,4 @@
-// Ingest Hub: central 서버의 /ingest 페이지를 띄우고 선택한 창 캡처(APP 슬롯)를 송신하는 얇은 클라이언트.
+// BEWEX Hub: 로컬 UI를 띄우고 선택한 창 캡처(BEWE 슬롯)를 central로 송신하는 얇은 클라이언트.
 const { app, BrowserWindow, desktopCapturer, ipcMain, session } = require('electron');
 const path = require('path');
 

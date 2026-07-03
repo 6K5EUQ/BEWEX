@@ -1,4 +1,4 @@
-// Ingest Hub 렌더러 (Electron 창에서 /ingest 로 열림).
+// BEWEX Hub 렌더러 (Electron 창에서 /ingest 로 열림).
 // QR 카드(슬롯1/2) + 창 캡처(슬롯3, WebRTC/보조 모드) + observer WS 상태판/뷰어 수.
 (() => {
   'use strict';
@@ -496,7 +496,7 @@
     // APP 캡처는 Electron 앱(preload) 안에서만 가능
     if (!window.ingestAPI) {
       pickBtn.disabled = true;
-      appMsg.textContent = 'APP 캡처는 Ingest Hub 앱 창에서만 사용할 수 있습니다.';
+      appMsg.textContent = '창 캡처는 BEWEX Hub 앱 창에서만 사용할 수 있습니다.';
     }
 
     let info;
