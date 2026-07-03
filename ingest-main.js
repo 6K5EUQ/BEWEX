@@ -132,17 +132,23 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    // 실행 중인 창 목록 (자기 자신 창 제외)
+    // 캡처 가능한 소스 목록: 전체 화면(screen) + 개별 창(window). 자기 자신 창 제외.
+    // screen을 앞에 두어 "전체 화면 송출"을 목록 맨 위에서 고를 수 있게 한다.
     ipcMain.handle('ingest:list-windows', async () => {
       const sources = await desktopCapturer.getSources({
-        types: ['window'],
+        types: ['screen', 'window'],
         thumbnailSize: { width: 320, height: 180 },
       });
       let selfId = null;
       try { selfId = win ? win.getMediaSourceId() : null; } catch (_) {}
       return sources
         .filter((s) => s.id !== selfId)
-        .map((s) => ({ id: s.id, name: s.name, thumbnail: s.thumbnail.toDataURL() }));
+        .map((s) => {
+          // screen 소스는 이름이 밋밋하므로(예: "Entire screen") 한국어 라벨을 붙인다.
+          const isScreen = s.id.startsWith('screen:');
+          const name = isScreen ? `전체 화면 (${s.name})` : s.name;
+          return { id: s.id, name, thumbnail: s.thumbnail.toDataURL() };
+        });
     });
 
     // 다음 getDisplayMedia가 캡처할 창 id 저장
@@ -178,7 +184,8 @@ if (!app.requestSingleInstanceLock()) {
         return;
       }
       if (!selectedSourceId) { callback({}); return; }
-      desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } })
+      // screen/window 둘 다 열거해 selectedSourceId(전체 화면 또는 개별 창)를 매칭한다.
+      desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } })
         .then((sources) => {
           const source = sources.find((s) => s.id === selectedSourceId);
           callback(source ? { video: source } : {});
