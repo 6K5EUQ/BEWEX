@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>BEWE Mission Monitor — 접속</title>
   <style>
-    /* 접속 화면 전용 스타일 (모니터 본편은 허브가 서빙하는 monitor.css 사용) */
+    /* 접속 화면 전용 스타일 */
     :root {
       --bg: #05070a;
       --panel: #0b0e14;
@@ -117,10 +117,8 @@
       cursor: pointer;
     }
     .recent li:hover { color: var(--accent); }
-    .recent li::before { content: '›'; color: var(--dim2); }
     .recent .empty { color: var(--dim2); cursor: default; font-size: 11px; }
     .recent .empty:hover { color: var(--dim2); }
-    .recent .empty::before { content: ''; }
   </style>
 </head>
 <body>

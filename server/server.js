@@ -125,7 +125,7 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
     res.json({ qr: await QRCode.toDataURL(url, { margin: 1, width: 240 }) });
   });
 
-  // ---------------- WebSocket 시그널링 ----------------
+  // WebSocket 시그널링
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8 * 1024 * 1024 });
   let nextId = 1;
   const clients = new Map(); // id -> {id, ws, role, name, kind, slot, fallback, observer}
@@ -157,7 +157,6 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
         const role = msg.role === 'viewer' ? 'viewer' : 'broadcaster';
 
         if (role === 'viewer') {
-          // 인증 없음 — Tailscale 신뢰망 전제
           me = { id, ws, role, observer: msg.observer === true };
           clients.set(id, me);
           send(me, {
@@ -174,7 +173,7 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
           return;
         }
 
-        // ---- 방송자 등록: 슬롯 배정 ----
+        // 방송자 등록: 슬롯 배정
         const requested = Number(msg.slot);
         let slot = [1, 2, 3].includes(requested) ? requested : null;
         const kind = msg.kind === 'screen' || msg.kind === 'app' ? msg.kind : 'camera';
@@ -186,7 +185,7 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
             else if (!used.has(2)) slot = 2;
             else { ws.close(4003, 'slots-full'); return; }
           } else {
-            slot = 3; // app/screen 캡처는 슬롯 3
+            slot = 3;
           }
         }
         // last-wins: 같은 슬롯의 기존 방송자를 밀어낸다

@@ -1,8 +1,5 @@
-// Ingest Hub 렌더러 (Electron 창에서 https://127.0.0.1:PORT/ingest 로 열림).
-// 역할:
-//  - 휴대폰 2대용 QR 카드 (슬롯1/2) + 접속 주소(인터페이스) 선택
-//  - 실행 중인 창을 골라 슬롯3(APP)으로 송출 (WebRTC + 보조 모드 자동 전환)
-//  - observer WS로 슬롯별 연결 상태판 + 모니터(뷰어) 수 표시
+// Ingest Hub 렌더러 (Electron 창에서 /ingest 로 열림).
+// QR 카드(슬롯1/2) + 창 캡처(슬롯3, WebRTC/보조 모드) + observer WS 상태판/뷰어 수.
 (() => {
   'use strict';
 
@@ -40,7 +37,7 @@
     connText.textContent = text;
   }
 
-  // ---------- 접속 주소 선택 + QR ----------
+  // 접속 주소 선택 + QR
   const isTailscale = (ip) => /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip);
   const ipLabel = (ip) => {
     if (isTailscale(ip)) return 'Tailscale — 외부(LTE)에서 접속';
@@ -65,7 +62,7 @@
     }));
   }
 
-  // ---------- 슬롯 상태판 (observer WS) ----------
+  // 슬롯 상태판 (observer WS)
   let obsWs = null;
   let obsReconnectTimer = null;
   const slotState = new Map(); // slot(1|2|3) -> {id, name, kind, fallback}
@@ -164,7 +161,7 @@
     };
   }
 
-  // ---------- APP 캡처 (슬롯3 방송, 두 번째 WS) ----------
+  // APP 캡처 (슬롯3 방송, 두 번째 WS)
   let capturing = false;
   let capStream = null;
   let capWs = null;
@@ -222,8 +219,7 @@
       }
     };
 
-    // 일정 시간 안에 P2P가 안 붙으면 보조 모드로 전환.
-    // 이미 보조 모드라면(=복귀 재시도 실패) 재시도 피어만 조용히 정리한다.
+    // P2P 미연결 시 보조 모드로 전환. 이미 보조 모드면 재시도 피어만 정리.
     capWatchdogs.set(viewerId, setTimeout(() => {
       if (pc.connectionState !== 'connected') {
         if (capFallback) closeCapPeer(viewerId);
@@ -401,7 +397,7 @@
     updateResumeBtn();
   }
 
-  // ---------- 창 목록 그리드 ----------
+  // 창 목록 그리드
   let listOpen = false;
   let listTimer = null;
 
@@ -489,7 +485,7 @@
 
   stopCaptureBtn.addEventListener('click', stopCapture);
 
-  // ---------- 시작 ----------
+  // 시작
   async function init() {
     renderSlots();
 

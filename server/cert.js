@@ -1,16 +1,11 @@
-// 휴대폰 브라우저에서 카메라(getUserMedia)를 쓰려면 HTTPS가 필수라서
-// 최초 실행 시 자체 서명 인증서를 만들어 사용자 데이터 폴더에 저장한다.
-//
-// 인증서 생성 이후 네트워크가 바뀌어(예: Tailscale 설치) 새 IP가 생기면
-// SAN에 그 IP가 없어 접속이 어긋나므로, 유효기간이 남았어도
-// 현재 IP 목록을 SAN이 전부 커버하지 못하면 재생성한다.
+// 휴대폰 카메라(getUserMedia)는 HTTPS 필수 — 최초 실행 시 자체 서명 인증서를 만들어 저장.
+// 네트워크가 바뀌어 새 IP가 생기면(SAN 미커버) 유효기간이 남았어도 재생성한다.
 const fs = require('fs');
 const path = require('path');
 const { X509Certificate } = require('crypto');
 const selfsigned = require('selfsigned');
 
-// subjectAltName 문자열(예: 'DNS:localhost, IP Address:127.0.0.1, IP Address:192.168.0.5')
-// 에서 IP 목록을 파싱한다.
+// subjectAltName 문자열에서 IP 목록을 파싱한다.
 function sanIPs(x509) {
   const out = new Set();
   for (const part of String(x509.subjectAltName || '').split(',')) {

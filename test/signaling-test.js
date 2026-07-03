@@ -1,6 +1,4 @@
-// 시그널링 서버 v2 통합 테스트: 무인증 등록, 슬롯 배정(4002/4003), observer 의미론,
-// viewer-count, 중계(watch/offer/answer/ice), 보조 모드(frame), 퇴장 흐름과
-// 인증서 SAN 커버리지 재생성을 검증한다.
+// 시그널링 서버 v2 통합 테스트: 등록/슬롯 배정/observer/viewer-count/중계/보조 모드/퇴장/인증서 SAN 검증
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const fs = require('fs');
@@ -70,7 +68,7 @@ class TestClient {
 
 function assert(cond, label) {
   if (!cond) throw new Error(`검증 실패: ${label}`);
-  console.log(`  ✓ ${label}`);
+  console.log(`  OK ${label}`);
 }
 
 (async () => {
@@ -97,7 +95,6 @@ function assert(cond, label) {
   try {
     // 1. /api/info — 토큰·PIN 없음, ips 배열
     const info = (await httpGet(`${httpBase}/api/info`)).json;
-    // 구 v1 필드(viewerToken/watchPin)가 응답에 되살아나지 않는지 확인하는 의도적 회귀 검증
     assert(info.viewerToken === undefined && info.watchPin === undefined, '/api/info에 토큰·PIN 없음 (구 v1 필드 회귀 검증)');
     assert(Array.isArray(info.ips), '/api/info에 ips 배열 포함');
     assert(info.port === server.port, '/api/info의 port 일치');
@@ -248,16 +245,16 @@ function assert(cond, label) {
     const vCountAfter = await viewer.waitFor('viewer-count');
     assert(vCountAfter.count === 1, '뷰어 퇴장 시 viewer-count 갱신');
 
-    console.log('\n모든 시그널링 테스트 통과 ✅');
+    console.log('\n모든 시그널링 테스트 통과');
     process.exitCode = 0;
   } catch (err) {
-    console.error('\n테스트 실패 ❌:', err.message);
+    console.error('\n테스트 실패:', err.message);
     process.exitCode = 1;
   } finally {
     await server.close();
     setTimeout(() => process.exit(process.exitCode), 300).unref();
   }
 })().catch((err) => {
-  console.error('\n테스트 실패 ❌:', err.message);
+  console.error('\n테스트 실패:', err.message);
   process.exit(1);
 });

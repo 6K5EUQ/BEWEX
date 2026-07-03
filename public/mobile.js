@@ -1,6 +1,4 @@
-// 휴대폰 송출 페이지.
-// 기본은 WebRTC(P2P) 전송이고, 일정 시간 안에 연결되지 않으면
-// 캔버스 캡처 프레임을 WebSocket으로 릴레이하는 보조 모드로 자동 전환한다.
+// 휴대폰 송출 페이지. 기본 WebRTC(P2P), 연결 실패 시 WebSocket 프레임 릴레이(보조 모드)로 전환.
 (() => {
   'use strict';
 
@@ -42,8 +40,7 @@
 
   nameInput.value = localStorage.getItem('phonecam-name') || '';
 
-  // ---------- 슬롯 지정 접속 (?slot=1|2) ----------
-  // QR로 들어온 슬롯 번호. 1|2 외의 값은 무시한다.
+  // 슬롯 지정 접속 (?slot=1|2). 1|2 외의 값은 무시.
   const slot = (() => {
     const v = new URLSearchParams(location.search).get('slot');
     return v === '1' || v === '2' ? Number(v) : null;
@@ -54,7 +51,7 @@
     nameInput.placeholder = `CAM ${slot}`;
   }
 
-  // ---------- UI ----------
+  // UI
   function setStatus(kind, text) {
     statusBadge.className = 'badge ' + kind;
     statusText.textContent = text;
@@ -68,7 +65,7 @@
     modeBadge.className = 'badge ' + (fallback ? 'warn' : 'ok');
     modeText.textContent = text;
   }
-  // 서버가 배정한 슬롯 번호 배지 (registered.slot)
+  // 서버가 배정한 슬롯 배지
   function setSlotBadge(n) {
     if (!n) {
       slotBadge.classList.add('hidden');
@@ -78,7 +75,7 @@
     slotText.textContent = `SLOT ${n}`;
   }
 
-  // ---------- 카메라 ----------
+  // 카메라
   function videoConstraints(f = facing, exact = false) {
     return {
       facingMode: exact ? { exact: f } : { ideal: f },
@@ -111,8 +108,7 @@
     previewOverlay.classList.add('hidden');
   }
 
-  // 새 스트림을 프리뷰와 모든 피어 연결에 갈아끼운다.
-  // (iOS는 새 getUserMedia가 기존 캡처를 죽이므로 오디오 트랙도 함께 교체해야 한다)
+  // 새 스트림을 프리뷰와 모든 피어에 교체 (iOS는 오디오 트랙도 함께 교체 필요)
   async function installStream(newStream) {
     const newVideo = newStream.getVideoTracks()[0] || null;
     const newAudio = newStream.getAudioTracks()[0] || null;
@@ -171,7 +167,7 @@
     flipBtn.disabled = false;
   }
 
-  // ---------- 화면 꺼짐 방지 ----------
+  // 화면 꺼짐 방지
   async function acquireWakeLock() {
     try {
       if ('wakeLock' in navigator) {
@@ -183,7 +179,7 @@
     if (document.visibilityState === 'visible' && broadcasting) acquireWakeLock();
   });
 
-  // ---------- WebSocket ----------
+  // WebSocket
   function wsSend(msg) {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }
@@ -236,8 +232,7 @@
         if (fallback) wsSend({ type: 'fallback-start' });
         break;
       case 'watch':
-        // 보조 모드 중이어도 뷰어가 새로 watch를 보내면 WebRTC 복귀를 시도한다
-        // (연결이 붙으면 exitFallback, 실패하면 워치독이 재시도 피어만 정리)
+        // 보조 모드 중에도 새 watch가 오면 WebRTC 복귀 시도
         startPeer(msg.from);
         break;
       case 'answer':
@@ -254,7 +249,7 @@
     }
   }
 
-  // ---------- WebRTC ----------
+  // WebRTC
   async function startPeer(viewerId) {
     closePeer(viewerId);
     const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -280,8 +275,7 @@
       }
     };
 
-    // 일정 시간 안에 P2P가 안 붙으면 보조 모드로 전환.
-    // 이미 보조 모드라면(=복귀 재시도 실패) 재시도 피어만 조용히 정리한다.
+    // P2P 미연결 시 보조 모드로 전환. 이미 보조 모드면 재시도 피어만 정리.
     watchdogs.set(viewerId, setTimeout(() => {
       if (pc.connectionState !== 'connected') {
         if (fallback) closePeer(viewerId);
@@ -336,7 +330,7 @@
     for (const id of [...pcs.keys()]) closePeer(id);
   }
 
-  // ---------- 보조 모드 (프레임 전송) ----------
+  // 보조 모드 (프레임 전송)
   const frameCanvas = document.createElement('canvas');
   const frameCtx = frameCanvas.getContext('2d');
 
@@ -375,7 +369,7 @@
     setMode('WebRTC');
   }
 
-  // ---------- 시작/종료 ----------
+  // 시작/종료
   async function startBroadcast() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert('이 브라우저는 카메라 접근을 지원하지 않습니다.\nHTTPS 주소로 접속했는지, 최신 브라우저인지 확인해 주세요.');

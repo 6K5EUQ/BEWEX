@@ -13,8 +13,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${1:-8443}"
 
-echo "==> BEWE central 서버 로컬 기동 (포트 ${PORT})"
-echo "    종료: Ctrl-C"
+echo "BEWE central 서버 로컬 기동 (포트 ${PORT})"
+echo "종료: Ctrl-C"
 
 # exec로 shell을 node로 대체 → SIGINT/SIGTERM이 standalone.js 핸들러로 바로 전달
 exec env BEWE_PORT="$PORT" node "$ROOT/server/standalone.js"

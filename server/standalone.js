@@ -1,12 +1,10 @@
-// 라즈베리파이(raspb2-central) 등에서 Electron 없이 순수 node로 상시 구동하는
-// 중앙 서버 부트스트랩. server.js의 startServer(HTTPS + WebSocket 시그널링)를
-// headless로 기동하고, SIGINT/SIGTERM 시 graceful하게 닫는다.
+// Electron 없이 순수 node로 중앙 서버를 상시 구동하는 부트스트랩.
+// startServer(HTTPS + WebSocket 시그널링)를 headless로 기동하고 SIGINT/SIGTERM에 graceful 종료.
 //
 // 실행: BEWE_PORT=8443 node server/standalone.js
 // 환경변수:
 //   BEWE_PORT     : 리슨 포트(기본 8443). 사용 중이면 server.js가 +19까지 탐색.
-//   BEWE_CERT_DIR : self-signed 인증서 저장 디렉토리
-//                   (기본 ~/.config/bewe-server/cert)
+//   BEWE_CERT_DIR : self-signed 인증서 저장 디렉토리 (기본 ~/.config/bewe-server/cert)
 const path = require('path');
 const os = require('os');
 const { startServer } = require('./server');

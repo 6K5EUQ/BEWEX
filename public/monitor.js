@@ -1,6 +1,4 @@
-// 관제 모니터 페이지 (허브가 https://허브IP:PORT/monitor 로 서빙).
-// 순수 웹 페이지 — Electron 전용 API를 쓰지 않으므로 일반 브라우저에서 열어도 동일하게 동작한다.
-// 고정 3슬롯(CAM 1 / CAM 2 / APP)에 WebRTC 스트림 또는 보조 모드(RELAY) 프레임을 표시한다.
+// 관제 모니터 페이지 — 고정 3슬롯(CAM 1 / CAM 2 / APP)에 WebRTC 또는 RELAY 프레임 표시.
 (() => {
   'use strict';
 
@@ -24,7 +22,7 @@
   let wsOpen = false;         // registered 수신 후 true
   let reconnectTimer = null;
 
-  // ---------- 슬롯(피드) 상태 ----------
+  // 슬롯(피드) 상태
   const feeds = new Map();              // slot(1|2|3) -> feed 객체
   const slotOfBroadcaster = new Map();  // broadcasterId -> slot
   const unassigned = new Set();         // slot 없는 구버전 방송자 id (표시만)
@@ -53,7 +51,7 @@
       fallback: false,   // 보조 모드(RELAY) 여부
       pc: null,
       pendingIce: [],
-      gotMedia: false,   // 실제 미디어(비디오 프레임/보조 프레임) 수신 여부 = LIVE
+      gotMedia: false,   // 미디어 수신됨 = LIVE
       // 텔레메트리 누적값 (1초 주기 델타 계산용)
       lastBytes: 0,
       lastFramesDecoded: 0,
@@ -97,7 +95,7 @@
 
   for (const slot of [1, 2, 3]) feeds.set(slot, makeFeed(slot));
 
-  // ---------- 피드 표시 상태 ----------
+  // 피드 표시 상태
   function setFeedStatus(feed, kind) {
     // kind: 'live' | 'acq' | 'off'
     feed.statusEl.className = 'feed-status ' + kind;
@@ -138,8 +136,7 @@
     feed.nosignalEl.classList.add('hidden');
     feed.acquiringEl.classList.remove('hidden');
     setFeedStatus(feed, 'acq');
-    // 보조 모드 방송자에게도 watch를 보낸다 — WebRTC 복귀 재시도,
-    // 실패하면 그대로 보조 모드 프레임을 계속 받는다
+    // 보조 모드 방송자에게도 watch 전송 (WebRTC 복귀 재시도, 실패 시 RELAY 프레임 유지)
     wsSend({ type: 'watch', target: b.id });
     updateConn();
   }
@@ -177,7 +174,7 @@
     feed.pendingIce = [];
   }
 
-  // ---------- WebRTC (방송자가 offer를 보내고 모니터가 answer) ----------
+  // WebRTC (방송자 offer → 모니터 answer)
   async function onOffer(broadcasterId, sdp) {
     // 보조 모드 중에도 offer를 받는다 — 방송자의 WebRTC 복귀 시도
     const feed = feedOf(broadcasterId);
@@ -244,7 +241,7 @@
     }
   }
 
-  // ---------- 텔레메트리 (1초 주기 getStats) ----------
+  // 텔레메트리 (1초 주기 getStats)
   function formatBitrate(bps) {
     if (bps >= 1e6) return (bps / 1e6).toFixed(1) + ' Mbps';
     return Math.round(bps / 1000) + ' kbps';
@@ -311,7 +308,7 @@
     for (const feed of feeds.values()) pollStats(feed);
   }, 1000);
 
-  // ---------- 레이아웃 (layout-main / layout-triple) ----------
+  // 레이아웃 (layout-main / layout-triple)
   let layout = localStorage.getItem('monitor-layout') === 'triple' ? 'triple' : 'main';
   let mainSlot = parseInt(localStorage.getItem('monitor-main-slot'), 10);
   if (![1, 2, 3].includes(mainSlot)) mainSlot = 3; // 기본 메인 = slot3(APP)
@@ -338,7 +335,7 @@
     if (e.code === 'KeyL' || e.key === 'l' || e.key === 'L') toggleLayout();
   });
 
-  // ---------- 미션 클록 + 시계 ----------
+  // 미션 클록 + 시계
   let t0 = null; // 카운트 시작 시각 (epoch ms), null = 정지
 
   clockBtn.addEventListener('click', () => {
@@ -370,7 +367,7 @@
   setInterval(renderClocks, 250);
   renderClocks();
 
-  // ---------- 하단 상태 바 ----------
+  // 하단 상태 바
   function updateConn() {
     if (!wsOpen) {
       connText.textContent = '서버 재연결 중…';
@@ -385,7 +382,7 @@
     unassignedEl.textContent = unassigned.size > 0 ? `미배정 피드 ${unassigned.size}` : '';
   }
 
-  // ---------- WebSocket ----------
+  // WebSocket
   function wsSend(msg) {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }
@@ -480,8 +477,7 @@
       }
       case 'frame': {
         const feed = feedOf(msg.from);
-        // 명시적 fallback 신호(fallback-start/등록 목록)가 있을 때만 렌더링 —
-        // WebRTC 복귀 직후 도착하는 잔여 프레임이 화면을 되돌리지 않게 한다
+        // fallback 상태에서만 렌더링 (WebRTC 복귀 직후 잔여 프레임이 화면을 되돌리지 않도록)
         if (!feed || !feed.fallback) break;
         if (!feed.gotMedia || feed.img.classList.contains('hidden')) setFeedMode(feed, 'relay');
         feed.img.src = msg.jpeg;
@@ -497,7 +493,7 @@
     }
   }
 
-  // ---------- 시작 ----------
+  // 시작
   // 최초 접속 전에는 HTML 기본값 "CONNECTING…"을 유지한다 (registered 수신 시 갱신)
   hubAddrEl.textContent = location.host;
   applyLayout();

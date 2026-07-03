@@ -1,14 +1,10 @@
 # BEWE Streaming Central Server — systemd 유닛 템플릿.
-#
-# 이 파일은 그대로 설치하지 말 것. scripts/deploy-central.sh 가 아래 자리표시자를
-# 원격 환경 값으로 치환해 /etc/systemd/system/bewe-server.service 로 설치한다:
+# scripts/deploy-central.sh 가 아래 자리표시자를 치환해 설치한다:
 #   %i             → 원격 사용자명 (User=)
 #   /home/%i       → 원격 사용자 홈 (WorkingDirectory / ExecStart 경로)
 #   /usr/bin/node  → 원격에서 `command -v node` 로 찾은 실제 node 경로
 #   BEWE_PORT=8443 → 배포 시 지정한 포트
-#
-# systemd 유닛은 한 줄 끝의 inline 주석(directive # comment)을 지원하지 않으므로,
-# 주석은 반드시 이렇게 한 줄 전체로만 둔다.
+# systemd 는 directive 끝의 inline 주석을 지원하지 않으므로 주석은 한 줄 전체로만 둔다.
 [Unit]
 Description=BEWE Streaming Central Server
 After=network-online.target

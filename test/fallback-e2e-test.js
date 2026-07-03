@@ -1,7 +1,4 @@
-// 보조 모드 E2E 테스트:
-// 휴대폰의 첫 RTCPeerConnection만 ICE를 차단해 WebRTC 연결을 실패시키고
-//  (1) 워치독이 보조 모드(JPEG 프레임 릴레이)로 자동 전환해 모니터 #slot1에 표시되는지
-//  (2) 모니터를 새로고침하면(재-watch) 두 번째 시도에서 WebRTC로 자동 복귀하는지 검증한다.
+// 보조 모드 E2E 테스트: 첫 PC의 ICE 차단으로 WebRTC 실패 → (1) 보조 모드(JPEG 릴레이) 자동 전환 (2) 모니터 새로고침 시 WebRTC 자동 복귀 검증
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const os = require('os');
@@ -13,7 +10,7 @@ const CHROME = process.env.CHROME_PATH || '/usr/bin/google-chrome';
 const certDir = path.join(os.tmpdir(), 'phonecam-e2e-cert');
 
 function step(label) {
-  console.log(`  ✓ ${label}`);
+  console.log(`  OK ${label}`);
 }
 
 (async () => {
@@ -47,7 +44,7 @@ function step(label) {
         const pc = new Orig(...args);
         if (count === 1) {
           pc.addIceCandidate = () => Promise.resolve(); // 원격 후보 무시
-          Object.defineProperty(pc, 'onicecandidate', {  // 자체 후보 유출 차단
+          Object.defineProperty(pc, 'onicecandidate', {  // 자체 후보 차단
             get() { return null; },
             set() {},
           });
@@ -96,10 +93,10 @@ function step(label) {
     );
     step('휴대폰 상태도 WebRTC 송출로 복귀');
 
-    console.log('\n보조 모드 E2E 테스트 통과 ✅');
+    console.log('\n보조 모드 E2E 테스트 통과');
     process.exitCode = 0;
   } catch (err) {
-    console.error('\n보조 모드 E2E 테스트 실패 ❌:', err.message);
+    console.error('\n보조 모드 E2E 테스트 실패:', err.message);
     process.exitCode = 1;
   } finally {
     if (browser) await browser.close().catch(() => {});

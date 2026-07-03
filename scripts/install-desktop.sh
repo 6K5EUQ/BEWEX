@@ -25,8 +25,8 @@ install_one() {
   local appimage
   appimage=$(ls "$ROOT"/release/"$key"/*.AppImage 2>/dev/null | head -1 || true)
   if [ -z "$appimage" ]; then
-    echo "❌ release/$key/ 에 AppImage가 없습니다. 먼저 빌드하세요:"
-    echo "   npm run dist:$key:linux"
+    echo "실패: release/$key/ 에 AppImage가 없습니다. 먼저 빌드하세요:"
+    echo "  npm run dist:$key:linux"
     return 1
   fi
 
@@ -40,7 +40,7 @@ install_one() {
   # 없으면 설치 시점에 압축해제해 두고 그 안의 AppRun을 실행(FUSE 불필요).
   local exec_cmd="$dest"
   if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
-    echo "ℹ️  libfuse2 미설치 → AppImage를 압축해제해 FUSE 없이 실행하도록 설정합니다."
+    echo "libfuse2 미설치 → AppImage를 압축해제해 FUSE 없이 실행하도록 설정합니다."
     local appdir="$INSTALL_DIR/$key.AppDir"
     rm -rf "$appdir"
     # extract는 실행 위치에 squashfs-root/ 를 생성하므로 대상 폴더 안에서 수행
@@ -49,7 +49,7 @@ install_one() {
       mv "$INSTALL_DIR/squashfs-root" "$appdir"
       exec_cmd="$appdir/AppRun"
     else
-      echo "⚠️  압축해제 실패 — extract-and-run 방식으로 대체합니다(실행이 느릴 수 있음)."
+      echo "압축해제 실패 — extract-and-run 방식으로 대체합니다(실행이 느릴 수 있음)."
       exec_cmd="$dest --appimage-extract-and-run"
     fi
   fi
@@ -77,10 +77,10 @@ EOF
     gio set "$DESKTOP_DIR/bewe-$key.desktop" metadata::trusted true 2>/dev/null || true
   fi
 
-  echo "✅ $name 설치 완료"
-  echo "   실행명령 : $exec_cmd"
-  echo "   앱 메뉴  : $desktop_file"
-  [ -d "$DESKTOP_DIR" ] && echo "   바탕화면 : $DESKTOP_DIR/bewe-$key.desktop"
+  echo "$name 설치 완료"
+  echo "  실행명령 : $exec_cmd"
+  echo "  앱 메뉴  : $desktop_file"
+  [ -d "$DESKTOP_DIR" ] && echo "  바탕화면 : $DESKTOP_DIR/bewe-$key.desktop"
 }
 
 case "$TARGET" in
@@ -101,5 +101,5 @@ case "$TARGET" in
 esac
 
 echo ""
-echo "ℹ️  아이콘이 바탕화면에서 '실행 안 됨'으로 나오면: 아이콘 우클릭 → '실행 허용(Allow Launching)'"
-echo "ℹ️  AppImage 실행에 FUSE 필요: sudo apt install libfuse2"
+echo "아이콘이 바탕화면에서 '실행 안 됨'으로 나오면: 아이콘 우클릭 → '실행 허용(Allow Launching)'"
+echo "AppImage 실행에 FUSE 필요: sudo apt install libfuse2"

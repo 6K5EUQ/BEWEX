@@ -1,15 +1,14 @@
-/* Mission Monitor — SpaceX 관제 스타일.
-   이 파일은 MONITOR 전용 스타일이다 (공용 style.css와 독립). */
+/* Mission Monitor 전용 스타일 (공용 style.css와 독립). */
 
 :root {
-  --bg: #05070a;        /* 페이지 배경 */
-  --panel: #0b0e14;     /* 패널 배경 */
-  --line: #1c2230;      /* 1px 보더 */
+  --bg: #05070a;
+  --panel: #0b0e14;
+  --line: #1c2230;
   --text: #c7d1e0;
   --dim: #55627a;
   --dim2: #39445c;
-  --accent: #6ab0ff;    /* 액센트 */
-  --live: #ff3b30;      /* LIVE 빨간 점 */
+  --accent: #6ab0ff;
+  --live: #ff3b30;
   --warn: #ffcc66;
   --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 }
@@ -45,7 +44,7 @@ button {
 }
 button:hover { color: var(--text); border-color: #2a3550; }
 
-/* ---------- 재연결 배너 ---------- */
+/* 재연결 배너 */
 #reconnectBanner {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -65,7 +64,7 @@ button:hover { color: var(--text); border-color: #2a3550; }
   50% { opacity: .55; }
 }
 
-/* ---------- 레이아웃 (여백 최소 — 영상이 화면 대부분 차지) ---------- */
+/* 레이아웃 (영상이 화면 대부분 차지) */
 #layoutRoot {
   flex: 1;
   min-height: 0;
@@ -85,7 +84,7 @@ button:hover { color: var(--text); border-color: #2a3550; }
   grid-template-rows: minmax(0, 1fr);
 }
 
-/* ---------- 피드 패널 ---------- */
+/* 피드 패널 */
 .feed-panel {
   position: relative;
   min-width: 0;
@@ -185,7 +184,7 @@ button:hover { color: var(--text); border-color: #2a3550; }
 }
 .feed-mute.on { color: var(--accent); border-color: var(--accent); }
 
-/* ---------- NO SIGNAL / ACQUIRING 오버레이 (은은한 스캔라인 + 점멸) ---------- */
+/* NO SIGNAL / ACQUIRING 오버레이 */
 .nosignal,
 .acquiring {
   position: absolute;
@@ -203,7 +202,7 @@ button:hover { color: var(--text); border-color: #2a3550; }
 }
 .nosignal::before,
 .acquiring::before {
-  /* 위→아래로 천천히 지나가는 스캔 스윕 라인 */
+  /* 스캔 스윕 라인 */
   content: '';
   position: absolute;
   left: 0; right: 0;
@@ -247,7 +246,7 @@ button:hover { color: var(--text); border-color: #2a3550; }
   animation: acq-pulse 1s ease-in-out infinite;
 }
 
-/* ---------- 하단 상태 바 ---------- */
+/* 하단 상태 바 */
 #statusBar {
   flex: none;
   display: flex;
@@ -290,7 +289,7 @@ button:hover { color: var(--text); border-color: #2a3550; }
 #connText { color: var(--text); }
 .warn-text { color: var(--warn); font-size: 11px; letter-spacing: .08em; }
 
-/* ---------- 반응형: 좁은 창에서는 세로 스택 ---------- */
+/* 반응형: 좁은 창에서는 세로 스택 */
 @media (max-width: 880px) {
   #layoutRoot.layout-main {
     grid-template-columns: minmax(0, 1fr);

@@ -24,6 +24,6 @@ cp -f "$PKG" "$BACKUP"
 restore() { cp -f "$BACKUP" "$PKG"; rm -f "$BACKUP"; }
 trap restore EXIT
 
-echo "▶ $APP ($PLATFORM) 빌드 중…"
+echo "$APP ($PLATFORM) 빌드 중"
 ( cd "$ROOT" && npx electron-builder --"$PLATFORM" --config "$CONFIG" )
-echo "✅ 빌드 완료 → release/$APP/"
+echo "빌드 완료 → release/$APP/"

@@ -1,5 +1,4 @@
-// E2E 테스트: 실제 Chrome 두 컨텍스트(가짜 카메라 휴대폰 / 관제 모니터)로
-// /mobile?slot=1 방송 시작 → WebRTC 연결 → 모니터 #slot1 패널에 영상 프레임 도착 → 방송 종료까지 검증한다.
+// E2E 테스트: /mobile?slot=1 방송 → WebRTC 연결 → 모니터 #slot1 영상 프레임 도착 → 방송 종료까지 검증 (Chrome 2 컨텍스트)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const os = require('os');
@@ -11,11 +10,10 @@ const CHROME = process.env.CHROME_PATH || '/usr/bin/google-chrome';
 const certDir = path.join(os.tmpdir(), 'phonecam-e2e-cert');
 
 function step(label) {
-  console.log(`  ✓ ${label}`);
+  console.log(`  OK ${label}`);
 }
 
-// 모니터 페이지가 WS 등록을 마치고 대기 상태에 들어갔는지 (#connText 표시) 대기
-// 초기값 'CONNECTING…'은 통과시키지 않고, registered 이후 값('STANDBY' / 'N FEED(S) LIVE')만 인정
+// 모니터 WS 등록 완료 대기: 'STANDBY' / 'N FEED(S) LIVE'만 인정 (초기값 'CONNECTING…' 제외)
 function waitMonitorReady(page) {
   return page.waitForFunction(() => {
     const el = document.getElementById('connText');
@@ -90,10 +88,10 @@ function waitMonitorReady(page) {
     }, null, { timeout: 10000 });
     step('방송 종료 시 슬롯 1이 NO SIGNAL로 복귀');
 
-    console.log('\nE2E 테스트 통과 ✅');
+    console.log('\nE2E 테스트 통과');
     process.exitCode = 0;
   } catch (err) {
-    console.error('\nE2E 테스트 실패 ❌:', err.message);
+    console.error('\nE2E 테스트 실패:', err.message);
     process.exitCode = 1;
   } finally {
     if (browser) await browser.close().catch(() => {});

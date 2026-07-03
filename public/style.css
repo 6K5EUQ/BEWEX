@@ -34,7 +34,7 @@ button {
 
 .hidden { display: none !important; }
 
-/* ---------- 공통 배지 ---------- */
+/* 공통 배지 */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -53,7 +53,7 @@ button {
 .badge.warn .dot { background: var(--warn); }
 .badge.err .dot { background: var(--danger); }
 
-/* ==================== 휴대폰(송출) 페이지 ==================== */
+/* 휴대폰(송출) 페이지 */
 .mobile-page {
   display: flex;
   flex-direction: column;
@@ -165,7 +165,7 @@ button {
   margin: 0;
 }
 
-/* ==================== 데스크톱(뷰어) 페이지 ==================== */
+/* 데스크톱(뷰어) 페이지 */
 .viewer-page {
   display: flex;
   flex-direction: column;
@@ -284,7 +284,7 @@ button {
   padding: 8px 12px;
   background: linear-gradient(transparent, rgba(0,0,0,.75));
   font-size: 13px;
-  /* 평소에는 영상을 가리지 않도록 숨기고, 마우스를 올리면 표시 */
+  /* hover 시에만 표시 */
   opacity: 0;
   transition: opacity .2s;
   pointer-events: none;

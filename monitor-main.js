@@ -1,37 +1,28 @@
-// Mission Monitor 메인 프로세스.
-// 시작 시 접속 화면을 건너뛰고 곧바로 중앙 서버(CENTRAL)의 /monitor 를 로드한다.
-// 로드 실패 시 접속 화면(monitor-connect.html)으로 폴백하고 5초마다 자동 재시도한다
-// (서버가 꺼져 있어도 켜지면 자동 접속). 자체 서명 인증서는 CENTRAL(+ 로컬)에 한해 허용한다.
+// Mission Monitor: 시작 시 곧바로 central의 /monitor 를 로드하고, 실패 시 접속 화면으로 폴백해 5초마다 재시도한다.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
-// 중앙 서버(라즈베리파이) 주소 — 환경변수로 덮어쓸 수 있다
+// 중앙 서버 주소 (환경변수로 재정의 가능)
 const CENTRAL_HOST = process.env.BEWE_CENTRAL || '100.123.59.3';
 const CENTRAL_PORT = Number(process.env.BEWE_PORT) || 8443;
 
-// Ingest Hub / Mission Monitor 두 앱은 같은 package.json name('bewe-streaming')으로
-// 빌드되므로, 이름을 명시적으로 분리하지 않으면 userData 경로(~/.config/bewe-streaming)와
-// single-instance lock을 공유한다. 그러면 허브가 켜진 상태에서 모니터를 실행할 때
-// lock 획득에 실패해 모니터 창이 뜨지 않고 허브 창만 focus된다. → 앱별 이름을 지정해 분리.
+// 두 앱이 같은 package.json name을 공유하면 single-instance lock이 겹치므로 앱별 이름으로 분리한다.
 app.setName('bewe-monitor');
 
-// 모니터의 <video>가 사용자 클릭 없이도 재생되도록 허용
+// <video>가 사용자 클릭 없이 재생되도록 허용
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let win = null;
-// 현재 접속 대상 호스트/포트 — 이 호스트(+ 로컬)에 한해서만 인증서 오류 허용.
-// 초기값이 CENTRAL이라 시작 시 별도 지정 없이 자동 접속·인증서 허용이 된다.
+// 현재 접속 대상 호스트/포트 — 이 호스트(+ 로컬)에 한해서만 인증서 오류 허용
 let targetHost = CENTRAL_HOST;
 let targetPort = CENTRAL_PORT;
-// central 로드 실패 시 자동 재시도 타이머
 let retryTimer = null;
 
 function isLocalHostname(hostname) {
   return hostname === '127.0.0.1' || hostname === 'localhost';
 }
 
-// IPC는 로컬 접속 화면(file://)에서 온 요청만 신뢰한다
-// (허브가 서빙하는 원격 페이지가 인증서 허용 대상을 바꾸지 못하게 함)
+// IPC는 로컬 접속 화면(file://)에서 온 요청만 신뢰 (원격 페이지가 인증서 허용 대상을 못 바꾸게 함)
 function isTrustedSender(event) {
   try {
     return new URL(event.senderFrame.url).protocol === 'file:';
@@ -42,22 +33,21 @@ function isTrustedSender(event) {
 
 function loadConnectPage(query) {
   if (!win) return;
-  // loadFile의 상대 경로는 app root 기준이라, 실행 방식과 무관하게 절대 경로 사용
+  // loadFile 상대 경로는 app root 기준이라 절대 경로 사용
   const page = path.join(__dirname, 'monitor-connect.html');
   win.loadFile(page, query ? { query } : undefined).catch(() => {});
 }
 
-// 대상 호스트/포트의 /monitor 페이지를 로드한다 (대기 중인 자동 재시도는 취소)
+// 대상 호스트/포트의 /monitor 로드 (대기 중인 자동 재시도는 취소)
 function loadMonitor(host, port) {
   if (!win) return;
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   targetHost = host;
   targetPort = port;
-  // 로드 실패는 did-fail-load 핸들러가 접속 화면 복귀 + 재시도로 처리한다
   win.loadURL(`https://${host}:${port}/monitor`).catch(() => {});
 }
 
-// 로드 실패 후 5초 뒤 현재 대상으로 재접속을 시도한다 (서버가 켜지면 자동 접속)
+// 로드 실패 후 5초 뒤 현재 대상으로 재접속
 function scheduleRetry() {
   if (retryTimer || !win) return;
   retryTimer = setTimeout(() => {
@@ -84,10 +74,10 @@ function createWindow() {
   win.setMenuBarVisibility(false);
   win.on('closed', () => { win = null; });
 
-  // 로드 실패(주소 오타, 서버 꺼짐 등) → 접속 화면으로 폴백 + 5초마다 자동 재시도
+  // 로드 실패 시 접속 화면으로 폴백 + 5초마다 자동 재시도
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (!isMainFrame) return;
-    if (errorCode === -3) return; // ERR_ABORTED — 사용자 이동 등 정상 취소
+    if (errorCode === -3) return; // ERR_ABORTED: 정상 취소
     if (!/^https?:/i.test(validatedURL || '')) return; // 접속 화면 자체의 실패는 무시
     loadConnectPage({
       error: `${errorDescription || 'LOAD FAILED'} (${errorCode})`,
@@ -97,16 +87,15 @@ function createWindow() {
     scheduleRetry();
   });
 
-  // 시작 시 접속 화면을 건너뛰고 곧바로 central 로 자동 접속한다
+  // 시작 시 접속 화면을 건너뛰고 곧바로 central 로 접속
   loadMonitor(targetHost, targetPort);
 }
 
-// app.quit()는 비동기라 락 획득 실패 후에도 whenReady가 실행되므로,
-// 나머지 초기화 전체를 락 획득 성공 분기 안에 둔다
+// 락 획득 실패 후에도 whenReady가 실행되므로 초기화 전체를 락 획득 분기 안에 둔다
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  // 자체 서명 인증서는 사용자가 지정한 허브 호스트(+ 127.0.0.1/localhost)에 한해서만 허용
+  // 자체 서명 인증서는 대상 호스트(+ 127.0.0.1/localhost)에만 허용
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
     let allowed = false;
     try {
@@ -138,8 +127,6 @@ if (!app.requestSingleInstanceLock()) {
     if (!/^[A-Za-z0-9.-]+$/.test(h)) throw new Error('잘못된 호스트 형식입니다');
     if (!(p >= 1 && p <= 65535)) throw new Error('잘못된 포트입니다');
     if (!win) return;
-    // 수동 접속: 대기 중인 자동 재시도를 취소하고 이 대상으로 로드한다.
-    // 로드 실패는 did-fail-load 핸들러가 접속 화면 복귀 + 재시도로 처리한다.
     loadMonitor(h, p);
   });
 

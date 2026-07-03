@@ -1,7 +1,5 @@
-// APP 릴레이 E2E 테스트 (구 screenshare-e2e-test.js 대체):
-// 헤드리스 환경에서는 실제 창 캡처가 불가하므로, ws 라이브러리로 가짜 APP 방송자
-// (role:'broadcaster', kind:'app', slot 미지정 → 서버가 슬롯 3 자동 배정)를 등록하고
-// fallback-start + JPEG dataURL frame을 전송해 모니터 #slot3 패널에 반영되는지 검증한다.
+// APP 릴레이 E2E 테스트: 가짜 APP 방송자(kind:'app', slot 미지정 → 슬롯 3 자동 배정)를 ws로 등록하고
+// fallback-start + JPEG dataURL frame 전송으로 모니터 #slot3 패널 반영 검증 (헤드리스라 실제 창 캡처 불가)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const os = require('os');
@@ -14,7 +12,7 @@ const CHROME = process.env.CHROME_PATH || '/usr/bin/google-chrome';
 const certDir = path.join(os.tmpdir(), 'phonecam-e2e-cert');
 
 function step(label) {
-  console.log(`  ✓ ${label}`);
+  console.log(`  OK ${label}`);
 }
 
 // JSON 메시지 큐 + 조건 대기 헬퍼가 붙은 WS 클라이언트 (가짜 방송자용)
@@ -80,8 +78,7 @@ function createWsClient(url) {
     await monitor.waitForFunction(() => {
       const el = document.getElementById('connText');
       const t = el ? el.textContent.trim() : '';
-      // 'STANDBY' / 'N FEED(S) LIVE'는 registered 수신 후에만 표시됨
-      // (초기값 'CONNECTING…'이 통과하지 않도록 정확한 값으로 대기)
+      // 'STANDBY' / 'N FEED(S) LIVE'만 인정 (초기값 'CONNECTING…' 제외)
       return t === 'STANDBY' || /FEEDS? LIVE$/.test(t);
     }, null, { timeout: 15000 });
     step('모니터가 서버에 등록되고 대기 상태 진입');
@@ -139,10 +136,10 @@ function createWsClient(url) {
     }, null, { timeout: 10000 });
     step('방송자 퇴장 시 슬롯 3이 NO SIGNAL로 복귀');
 
-    console.log('\nAPP 릴레이 E2E 테스트 통과 ✅');
+    console.log('\nAPP 릴레이 E2E 테스트 통과');
     process.exitCode = 0;
   } catch (err) {
-    console.error('\nAPP 릴레이 E2E 테스트 실패 ❌:', err.message);
+    console.error('\nAPP 릴레이 E2E 테스트 실패:', err.message);
     process.exitCode = 1;
   } finally {
     clearInterval(frameTimer);
