@@ -1,18 +1,33 @@
-// 내장 HTTPS 웹 서버 + WebSocket 시그널링 서버.
+// 내장 HTTPS 웹 서버 + WebSocket 시그널링 서버 (프로토콜 v2).
 //
-// 역할:
-//  - /mobile   : 휴대폰용 송출 페이지 제공
-//  - /viewer   : 데스크톱용 뷰어 페이지 제공
-//  - /api/info : 접속 주소·QR 코드 제공 (뷰어 토큰은 localhost 요청에만 포함)
-//  - /ws       : WebRTC 시그널링 및 보조(프레임 릴레이) 채널
+// 모든 네트워크는 Tailscale 신뢰망 전제 — PIN/토큰 인증 없음.
 //
-// 시그널링 프로토콜(JSON):
-//  휴대폰 → 서버 : {type:'register', role:'broadcaster', name}
-//  뷰어   → 서버 : {type:'register', role:'viewer', token}
-//  서버   → 등록자: {type:'registered', id, broadcasters?}
-//  중계(target 지정): watch / offer / answer / ice / stop  → from을 붙여 상대에게 전달
-//  방송 상태: fallback-start / fallback-stop / frame → 모든 뷰어에게 전달
-const crypto = require('crypto');
+// HTTP 라우트:
+//  - /          : /mobile 로 redirect
+//  - /mobile    : 휴대폰용 송출 페이지 (슬롯 1·2 카메라)
+//  - /ingest    : Ingest Hub UI 페이지
+//  - /monitor   : Mission Monitor 관제 페이지
+//  - /viewer    : 구버전 호환 — /monitor 로 301 redirect
+//  - /api/info  : {port, ips}
+//  - /api/qr    : ?ip=<ips 중 하나>&slot=<1|2|생략> → mobile 접속 QR dataURL
+//  - /ws        : WebRTC 시그널링 및 보조(프레임 릴레이) 채널
+//
+// 시그널링 프로토콜 v2 (JSON):
+//  방송자 → 서버 : {type:'register', role:'broadcaster', name?, slot?, kind?}
+//                  kind ∈ 'camera'|'screen'|'app' (기본 'camera'), slot: 1|2|3 (선택)
+//  뷰어   → 서버 : {type:'register', role:'viewer', observer?}
+//                  observer:true = Ingest Hub 상태판 — 이벤트는 받지만
+//                  frame 릴레이 대상에서 제외되고 viewer-count에도 미포함
+//  서버   → 등록자: 방송자 {type:'registered', id, slot} /
+//                  뷰어   {type:'registered', id, broadcasters:[{id,name,slot,kind,fallback}]}
+//  슬롯 배정: 명시적 slot은 last-wins(기존 방송자 4002 slot-taken 종료),
+//             미지정 camera는 1→2 빈 곳(둘 다 차면 4003 slots-full 거부),
+//             미지정 app/screen은 슬롯 3(last-wins)
+//  이벤트: broadcaster-joined/left → 모든 뷰어(observer 포함),
+//          viewer-count → 모든 클라이언트 (observer 아닌 뷰어 수),
+//          viewer-left → 모든 클라이언트 (방송자의 피어 정리용)
+//  1:1 중계(target 지정): watch / offer / answer / ice / stop → from을 붙여 상대에게 전달
+//  방송 상태: fallback-start/stop → 모든 뷰어 / frame → observer 제외 모든 뷰어
 const express = require('express');
 const https = require('https');
 const os = require('os');
@@ -63,25 +78,19 @@ function listenOnce(server, port) {
   });
 }
 
-function isLocalhost(req) {
-  const addr = req.socket.remoteAddress || '';
-  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
-}
-
 async function startServer({ certDir, preferredPort = 8443 } = {}) {
   const ips = getLanIPs();
   const { key, cert } = loadOrCreateCert(certDir, ips);
-  const viewerToken = crypto.randomBytes(16).toString('hex');
-  // 외부 기기(휴대폰 등)에서 시청할 때 입력하는 PIN — 실행마다 새로 생성
-  const watchPin = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-  const pinFails = new Map(); // IP별 PIN 오입력 횟수 (10회 초과 시 차단, 재시작 전까지)
 
   const app = express();
   const publicDir = path.join(__dirname, '..', 'public');
   app.use(express.static(publicDir));
   app.get('/', (req, res) => res.redirect('/mobile'));
   app.get('/mobile', (req, res) => res.sendFile(path.join(publicDir, 'mobile.html')));
-  app.get('/viewer', (req, res) => res.sendFile(path.join(publicDir, 'viewer.html')));
+  app.get('/ingest', (req, res) => res.sendFile(path.join(publicDir, 'ingest.html')));
+  app.get('/monitor', (req, res) => res.sendFile(path.join(publicDir, 'monitor.html')));
+  // 구버전 호환: 예전 뷰어 주소는 관제 모니터로 안내
+  app.get('/viewer', (req, res) => res.redirect(301, '/monitor'));
 
   const server = https.createServer({ key, cert }, app);
 
@@ -96,43 +105,37 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
     }
   }
 
-  const mobileUrl = `https://${ips[0] || 'localhost'}:${port}/mobile`;
-
-  app.get('/api/info', async (req, res) => {
-    const info = {
-      port,
-      ips,
-      mobileUrl,
-      qr: await QRCode.toDataURL(mobileUrl, { margin: 1, width: 240 }),
-    };
-    // 시청 토큰·PIN은 이 PC(데스크톱 앱)의 요청에만 알려 준다.
-    if (isLocalhost(req)) {
-      info.viewerToken = viewerToken;
-      info.watchPin = watchPin;
-    }
-    res.json(info);
+  app.get('/api/info', (req, res) => {
+    res.json({ port, ips });
   });
 
-  // 뷰어에서 접속 주소(예: Wi-Fi ↔ Tailscale)를 바꿔 고르면 해당 주소의 QR을 다시 생성
+  // 접속 주소(예: Wi-Fi ↔ Tailscale)와 슬롯을 골라 해당 mobile 주소의 QR을 생성
   app.get('/api/qr', async (req, res) => {
     const ip = String(req.query.ip || '');
     if (!ips.includes(ip)) return res.status(400).json({ error: 'unknown ip' });
-    res.json({ qr: await QRCode.toDataURL(`https://${ip}:${port}/mobile`, { margin: 1, width: 240 }) });
+    const slot = req.query.slot === '1' || req.query.slot === '2' ? Number(req.query.slot) : null;
+    const url = `https://${ip}:${port}/mobile${slot ? `?slot=${slot}` : ''}`;
+    res.json({ qr: await QRCode.toDataURL(url, { margin: 1, width: 240 }) });
   });
 
   // ---------------- WebSocket 시그널링 ----------------
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8 * 1024 * 1024 });
   let nextId = 1;
-  const clients = new Map(); // id -> {id, ws, role, name, fallback}
+  const clients = new Map(); // id -> {id, ws, role, name, kind, slot, fallback, observer}
 
   const send = (client, msg) => {
     if (client.ws.readyState === WebSocket.OPEN) client.ws.send(JSON.stringify(msg));
   };
-  const byRole = (role) => [...clients.values()].filter((c) => c.role === role);
+  const broadcasters = () => [...clients.values()].filter((c) => c.role === 'broadcaster');
+  const viewers = () => [...clients.values()].filter((c) => c.role === 'viewer'); // observer 포함
+  const viewerCount = () => viewers().filter((v) => !v.observer).length;
+  const broadcastViewerCount = () => {
+    const msg = { type: 'viewer-count', count: viewerCount() };
+    for (const c of clients.values()) send(c, msg);
+  };
 
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws) => {
     const id = String(nextId++);
-    const remoteIp = (req && req.socket && req.socket.remoteAddress) || '';
     let me = null;
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
@@ -145,36 +148,54 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
       if (msg.type === 'register') {
         if (me) return;
         const role = msg.role === 'viewer' ? 'viewer' : 'broadcaster';
+
         if (role === 'viewer') {
-          // 데스크톱 앱은 토큰으로, 외부 기기는 PIN으로 인증
-          const okToken = msg.token === viewerToken;
-          const fails = pinFails.get(remoteIp) || 0;
-          const okPin = typeof msg.pin === 'string' && fails < 10 && msg.pin === watchPin;
-          if (!okToken && !okPin) {
-            if (typeof msg.pin === 'string') pinFails.set(remoteIp, fails + 1);
-            send({ ws }, { type: 'error', reason: 'unauthorized' });
-            ws.close(4001, 'unauthorized');
-            return;
-          }
-          if (okPin) pinFails.delete(remoteIp);
-        }
-        const name = String(msg.name || '').trim().slice(0, 30) || `카메라 ${id}`;
-        const kind = msg.kind === 'screen' ? 'screen' : 'camera';
-        const tag = typeof msg.tag === 'string' ? msg.tag.slice(0, 32) : undefined;
-        me = { id, ws, role, name, kind, tag, fallback: false };
-        clients.set(id, me);
-        if (role === 'viewer') {
+          // 인증 없음 — Tailscale 신뢰망 전제
+          me = { id, ws, role, observer: msg.observer === true };
+          clients.set(id, me);
           send(me, {
             type: 'registered',
             id,
-            broadcasters: byRole('broadcaster').map((b) => ({
-              id: b.id, name: b.name, kind: b.kind, tag: b.tag, fallback: b.fallback,
+            broadcasters: broadcasters().map((b) => ({
+              id: b.id, name: b.name, slot: b.slot, kind: b.kind, fallback: b.fallback,
             })),
           });
-        } else {
-          send(me, { type: 'registered', id });
-          for (const v of byRole('viewer')) send(v, { type: 'broadcaster-joined', id, name, kind, tag });
+          // observer는 count에 영향이 없으므로 현재 값만 알려 주고,
+          // 일반 뷰어는 count가 바뀌므로 모두에게 통지 (본인 포함)
+          if (me.observer) send(me, { type: 'viewer-count', count: viewerCount() });
+          else broadcastViewerCount();
+          return;
         }
+
+        // ---- 방송자 등록: 슬롯 배정 ----
+        const requested = Number(msg.slot);
+        let slot = [1, 2, 3].includes(requested) ? requested : null;
+        const kind = msg.kind === 'screen' || msg.kind === 'app' ? msg.kind : 'camera';
+        if (slot === null) {
+          if (kind === 'camera') {
+            // 카메라는 슬롯 1→2 순서로 빈 곳 배정, 둘 다 차 있으면 거부
+            const used = new Set(broadcasters().map((b) => b.slot));
+            if (!used.has(1)) slot = 1;
+            else if (!used.has(2)) slot = 2;
+            else { ws.close(4003, 'slots-full'); return; }
+          } else {
+            slot = 3; // app/screen 캡처는 슬롯 3
+          }
+        }
+        // last-wins: 같은 슬롯의 기존 방송자를 밀어낸다
+        const prev = broadcasters().find((b) => b.slot === slot);
+        if (prev) {
+          clients.delete(prev.id);
+          for (const v of viewers()) send(v, { type: 'broadcaster-left', id: prev.id });
+          prev.ws.close(4002, 'slot-taken');
+        }
+        const defaultName =
+          slot === 1 ? 'CAM 1' : slot === 2 ? 'CAM 2' : slot === 3 ? 'APP' : `카메라 ${id}`;
+        const name = String(msg.name || '').trim().slice(0, 30) || defaultName;
+        me = { id, ws, role, name, kind, slot, fallback: false, observer: false };
+        clients.set(id, me);
+        send(me, { type: 'registered', id, slot });
+        for (const v of viewers()) send(v, { type: 'broadcaster-joined', id, name, slot, kind });
         return;
       }
 
@@ -191,17 +212,18 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
           if (target) send(target, { ...msg, target: undefined, from: id });
           break;
         }
-        // 방송자 → 모든 뷰어
+        // 방송자 → 모든 뷰어 (observer 포함 — 상태판 갱신용)
         case 'fallback-start':
         case 'fallback-stop': {
           if (me.role !== 'broadcaster') break;
           me.fallback = msg.type === 'fallback-start';
-          for (const v of byRole('viewer')) send(v, { type: msg.type, from: id });
+          for (const v of viewers()) send(v, { type: msg.type, from: id });
           break;
         }
         case 'frame': {
           if (me.role !== 'broadcaster' || typeof msg.jpeg !== 'string') break;
-          for (const v of byRole('viewer')) {
+          for (const v of viewers()) {
+            if (v.observer) continue; // observer는 영상을 받지 않는다
             // 수신이 밀리는 뷰어에는 프레임을 건너뛴다 (실시간성 우선)
             if (v.ws.bufferedAmount > 2 * 1024 * 1024) continue;
             send(v, { type: 'frame', from: id, jpeg: msg.jpeg });
@@ -215,9 +237,19 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
 
     ws.on('close', () => {
       if (!me) return;
-      clients.delete(id);
-      const gone = { type: me.role === 'broadcaster' ? 'broadcaster-left' : 'viewer-left', id };
-      for (const c of clients.values()) send(c, gone);
+      // last-wins로 이미 밀려난 방송자는 정리·통지가 끝난 상태
+      if (clients.get(me.id) !== me) return;
+      clients.delete(me.id);
+      if (me.role === 'broadcaster') {
+        // broadcaster-left는 스펙상 모든 뷰어(observer 포함)에게만 — last-wins 경로와 동일
+        const gone = { type: 'broadcaster-left', id: me.id };
+        for (const v of viewers()) send(v, gone);
+      } else {
+        // viewer-left는 방송자의 피어 정리용 — 모든 클라이언트에게
+        const gone = { type: 'viewer-left', id: me.id };
+        for (const c of clients.values()) send(c, gone);
+        if (!me.observer) broadcastViewerCount();
+      }
     });
   });
 
@@ -237,8 +269,6 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
   return {
     port,
     ips,
-    mobileUrl,
-    viewerToken,
     close: () =>
       new Promise((resolve) => {
         clearInterval(heartbeat);

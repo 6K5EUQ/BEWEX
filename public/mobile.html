@@ -6,11 +6,26 @@
   <meta name="theme-color" content="#111318" />
   <title>PhoneCam - 카메라 송출</title>
   <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* 슬롯 지정 접속(?slot=N) 시 헤더에 붙는 CAM 태그 */
+    .slot-tag {
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      background: var(--accent);
+      color: #fff;
+    }
+  </style>
 </head>
 <body>
   <div class="mobile-page">
     <header>
-      <h1>📹 카메라 송출</h1>
+      <h1>📹 카메라 송출<span id="slotTag" class="slot-tag hidden"></span></h1>
       <p>아래 버튼을 누르고 카메라 권한을 허용하면 데스크톱으로 실시간 전송됩니다.</p>
     </header>
 
@@ -23,6 +38,7 @@
       <div class="status-bar">
         <span id="statusBadge" class="badge"><span class="dot"></span><span id="statusText">대기 중</span></span>
         <span id="modeBadge" class="badge hidden"><span class="dot"></span><span id="modeText"></span></span>
+        <span id="slotBadge" class="badge hidden"><span class="dot"></span><span id="slotText"></span></span>
       </div>
     </div>
 

@@ -1,7 +1,7 @@
 // 보조 모드 E2E 테스트:
 // 휴대폰의 첫 RTCPeerConnection만 ICE를 차단해 WebRTC 연결을 실패시키고
-//  (1) 워치독이 보조 모드(JPEG 프레임)로 자동 전환하는지
-//  (2) 뷰어를 새로고침하면(재-watch) 두 번째 시도에서 WebRTC로 자동 복귀하는지 검증한다.
+//  (1) 워치독이 보조 모드(JPEG 프레임 릴레이)로 자동 전환해 모니터 #slot1에 표시되는지
+//  (2) 모니터를 새로고침하면(재-watch) 두 번째 시도에서 WebRTC로 자동 복귀하는지 검증한다.
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const os = require('os');
@@ -33,9 +33,9 @@ function step(label) {
       ],
     });
 
-    const viewerCtx = await browser.newContext({ ignoreHTTPSErrors: true });
-    let viewer = await viewerCtx.newPage();
-    await viewer.goto(`${origin}/viewer`);
+    const monitorCtx = await browser.newContext({ ignoreHTTPSErrors: true });
+    const monitor = await monitorCtx.newPage();
+    await monitor.goto(`${origin}/monitor`);
 
     // 휴대폰 컨텍스트: 첫 번째 RTCPeerConnection만 ICE를 완전히 차단
     const phoneCtx = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -67,25 +67,28 @@ function step(label) {
     );
     step('WebRTC 실패 시 휴대폰이 보조 모드로 자동 전환');
 
-    // 2. 뷰어가 JPEG 프레임을 실제로 렌더링
-    await viewer.waitForFunction(() => {
-      const img = document.querySelector('.tile img.frame');
-      const badge = document.querySelector('.tile .mode-text');
-      return img && !img.classList.contains('hidden') &&
+    // 2. 모니터 #slot1이 JPEG 프레임을 RELAY 모드로 실제 렌더링
+    //    (카메라 slot 미지정 → 서버가 슬롯 1 자동 배정)
+    await monitor.waitForFunction(() => {
+      const img = document.querySelector('#slot1 img.feed-frame');
+      const mode = document.querySelector('#slot1 .feed-mode');
+      if (!img || !mode) return false;
+      const st = getComputedStyle(img);
+      return st.display !== 'none' && st.visibility !== 'hidden' &&
         img.src.startsWith('data:image/jpeg') && img.naturalWidth > 0 &&
-        badge && badge.textContent === '보조 모드';
+        mode.textContent.trim() === 'RELAY';
     }, null, { timeout: 15000 });
-    step('뷰어가 보조 모드 프레임(JPEG)을 실시간 표시');
+    step('모니터가 보조 모드 프레임(JPEG)을 #slot1에 RELAY로 표시');
 
-    // 3. 뷰어 새로고침 → 재-watch → 두 번째 pc는 정상이므로 WebRTC로 자동 복귀
-    await viewer.reload();
-    await viewer.waitForFunction(() => {
-      const v = document.querySelector('.tile video');
-      const badge = document.querySelector('.tile .mode-text');
-      return v && !v.classList.contains('hidden') && v.videoWidth > 0 &&
-        badge && badge.textContent.includes('WebRTC');
+    // 3. 모니터 새로고침 → 재-watch → 두 번째 pc는 정상이므로 WebRTC로 자동 복귀
+    await monitor.reload();
+    await monitor.waitForFunction(() => {
+      const v = document.querySelector('#slot1 video.feed-video');
+      const mode = document.querySelector('#slot1 .feed-mode');
+      return v && v.videoWidth > 0 &&
+        mode && mode.textContent.trim() === 'WebRTC';
     }, null, { timeout: 30000 });
-    step('뷰어 재접속 시 보조 모드에서 WebRTC로 자동 복귀');
+    step('모니터 재접속 시 보조 모드에서 WebRTC로 자동 복귀');
 
     await phone.waitForFunction(
       () => document.getElementById('statusText').textContent === '송출 중',

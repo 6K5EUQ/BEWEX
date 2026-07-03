@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>BEWE Mission Monitor — 접속</title>
+  <style>
+    /* 접속 화면 전용 스타일 (모니터 본편은 허브가 서빙하는 monitor.css 사용) */
+    :root {
+      --bg: #05070a;
+      --panel: #0b0e14;
+      --line: #1c2230;
+      --text: #c7d1e0;
+      --dim: #55627a;
+      --dim2: #39445c;
+      --accent: #6ab0ff;
+      --live: #ff3b30;
+      --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .card {
+      width: min(460px, 92vw);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 28px 26px 22px;
+    }
+    h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .3em;
+      text-indent: .3em;
+      text-transform: uppercase;
+      text-align: center;
+      color: var(--text);
+    }
+    h1 .accent { color: var(--accent); }
+    .sub {
+      margin-top: 6px;
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: .28em;
+      text-indent: .28em;
+      text-transform: uppercase;
+      color: var(--dim2);
+    }
+    form { margin-top: 22px; display: flex; gap: 8px; }
+    input {
+      flex: 1;
+      min-width: 0;
+      background: #070a10;
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      letter-spacing: .04em;
+      padding: 9px 11px;
+      outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--dim2); }
+    button {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      background: rgba(11, 14, 20, .7);
+      color: var(--dim);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 9px 14px;
+      cursor: pointer;
+    }
+    button:hover { color: var(--text); border-color: #2a3550; }
+    button.primary { color: var(--accent); border-color: #2a4a75; }
+    button.primary:hover { border-color: var(--accent); }
+    .local-row { margin-top: 10px; }
+    .local-row button { width: 100%; }
+    .hint { margin-top: 8px; font-size: 11px; color: var(--dim2); letter-spacing: .04em; }
+    .msg {
+      margin-top: 14px;
+      min-height: 16px;
+      font-size: 11px;
+      color: var(--live);
+      letter-spacing: .04em;
+      word-break: break-all;
+    }
+    .msg.info { color: var(--dim); }
+    .recent { margin-top: 18px; }
+    .recent h2 {
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--dim2);
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 6px;
+    }
+    .recent ul { list-style: none; }
+    .recent li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 1px solid rgba(28, 34, 48, .5);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .recent li:hover { color: var(--accent); }
+    .recent li::before { content: '›'; color: var(--dim2); }
+    .recent .empty { color: var(--dim2); cursor: default; font-size: 11px; }
+    .recent .empty:hover { color: var(--dim2); }
+    .recent .empty::before { content: ''; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>BEWE<span class="accent"> · </span>Mission Monitor</h1>
+    <div class="sub">Ingest Hub Connect</div>
+
+    <form id="connectForm">
+      <input id="hostInput" placeholder="허브 IP 또는 IP:포트" autocomplete="off" spellcheck="false" autofocus />
+      <button type="submit" class="primary">접속</button>
+    </form>
+    <div class="local-row">
+      <button type="button" id="localBtn">이 PC (127.0.0.1)</button>
+    </div>
+    <div class="hint">포트를 생략하면 기본 8443을 사용합니다. 예: 100.101.102.103 또는 192.168.0.10:8443</div>
+    <div class="msg" id="msg"></div>
+
+    <div class="recent">
+      <h2>최근 접속</h2>
+      <ul id="recentList"></ul>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const DEFAULT_PORT = 8443;
+      const STORAGE_KEY = 'monitor-recent-hosts';
+      const input = document.getElementById('hostInput');
+      const msg = document.getElementById('msg');
+      const recentList = document.getElementById('recentList');
+
+      // "IP" 또는 "IP:PORT" (호스트명도 허용)
+      function parseTarget(raw) {
+        const s = String(raw || '').trim();
+        const m = s.match(/^([A-Za-z0-9.-]+?)(?::(\d{1,5}))?$/);
+        if (!m) return null;
+        const port = m[2] ? Number(m[2]) : DEFAULT_PORT;
+        if (!(port >= 1 && port <= 65535)) return null;
+        return { host: m[1], port };
+      }
+
+      function loadRecent() {
+        try {
+          const list = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          return Array.isArray(list) ? list.filter((x) => typeof x === 'string') : [];
+        } catch (_) {
+          return [];
+        }
+      }
+
+      function saveRecent(host, port) {
+        const key = port === DEFAULT_PORT ? host : `${host}:${port}`;
+        const list = [key, ...loadRecent().filter((x) => x !== key)].slice(0, 5);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      }
+
+      function renderRecent() {
+        recentList.innerHTML = '';
+        const list = loadRecent();
+        if (list.length === 0) {
+          const li = document.createElement('li');
+          li.className = 'empty';
+          li.textContent = '최근 접속 기록이 없습니다';
+          recentList.appendChild(li);
+          return;
+        }
+        for (const entry of list) {
+          const li = document.createElement('li');
+          li.textContent = entry;
+          li.title = '클릭하면 바로 접속합니다';
+          li.addEventListener('click', () => {
+            const t = parseTarget(entry);
+            if (t) connect(t.host, t.port);
+          });
+          recentList.appendChild(li);
+        }
+      }
+
+      async function connect(host, port) {
+        if (!window.monitorAPI) {
+          msg.className = 'msg';
+          msg.textContent = '이 화면은 BEWE Mission Monitor 앱 안에서만 동작합니다.';
+          return;
+        }
+        saveRecent(host, port);
+        renderRecent();
+        msg.className = 'msg info';
+        msg.textContent = `접속 중… https://${host}:${port}/monitor`;
+        try {
+          await window.monitorAPI.connect(host, port);
+        } catch (err) {
+          msg.className = 'msg';
+          msg.textContent = '접속 실패: ' + (err && err.message ? err.message : err);
+        }
+      }
+
+      document.getElementById('connectForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const t = parseTarget(input.value);
+        if (!t) {
+          msg.className = 'msg';
+          msg.textContent = '주소 형식이 올바르지 않습니다. 예: 100.101.102.103 또는 IP:8443';
+          return;
+        }
+        connect(t.host, t.port);
+      });
+
+      document.getElementById('localBtn').addEventListener('click', () => {
+        connect('127.0.0.1', DEFAULT_PORT);
+      });
+
+      // 이전 로드 실패 시 메인 프로세스가 쿼리로 에러를 전달한다
+      const q = new URLSearchParams(location.search);
+      if (q.get('error')) {
+        msg.className = 'msg';
+        msg.textContent = `허브 로드 실패: ${q.get('error')}` + (q.get('url') ? ` — ${q.get('url')}` : '');
+      }
+
+      // 마지막 접속 주소를 입력칸에 미리 채워 둔다
+      input.value = loadRecent()[0] || '';
+      renderRecent();
+    })();
+  </script>
+</body>
+</html>

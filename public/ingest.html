@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BEWE Ingest Hub</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* ==================== Ingest Hub 전용 스타일 ==================== */
+    .ingest-page {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .ingest-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--panel-2);
+      flex-wrap: wrap;
+    }
+    .ingest-header h1 { font-size: 17px; margin: 0; }
+    .ingest-header .spacer { flex: 1; }
+    .ingest-header label { color: var(--muted); font-size: 13px; }
+    .ingest-header select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--panel-2);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      max-width: 380px;
+    }
+
+    .cards {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1fr 1fr;
+      align-content: start;
+    }
+    .card {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-head { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .card-head h2 { margin: 0; font-size: 15px; letter-spacing: .5px; }
+
+    /* 카메라 슬롯 카드 (QR) */
+    .cam-card { align-items: center; text-align: center; }
+    .cam-card img.qr {
+      width: 180px;
+      height: 180px;
+      border-radius: 10px;
+      background: #fff;
+      padding: 6px;
+    }
+    .cam-addr {
+      font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+      font-size: 13px;
+      color: var(--accent);
+      user-select: all;
+      word-break: break-all;
+    }
+    .cam-hint { margin: 0; color: var(--muted); font-size: 12px; }
+
+    /* APP 캡처 카드 */
+    .app-card { grid-column: 1 / -1; }
+    .app-card .card-head { justify-content: flex-start; }
+    .btn.sm { padding: 8px 14px; font-size: 13px; border-radius: 10px; }
+    .app-idle { display: flex; flex-direction: column; gap: 10px; }
+    .app-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .app-msg { color: var(--warn); font-size: 13px; min-height: 16px; }
+    .win-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 10px;
+      max-height: 320px;
+      overflow: auto;
+      background: var(--panel-2);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .win-item {
+      background: var(--bg);
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: border-color .15s;
+    }
+    .win-item:hover { border-color: var(--accent); }
+    .win-item img {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: contain;
+      background: #000;
+      display: block;
+    }
+    .win-item .win-name {
+      padding: 8px 10px;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .win-empty { grid-column: 1 / -1; color: var(--muted); font-size: 13px; text-align: center; padding: 18px 0; }
+    .app-live { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .app-live video {
+      width: 320px;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: contain;
+      background: #000;
+      border-radius: 10px;
+    }
+    .app-live-info { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+    .app-title { font-size: 14px; font-weight: 700; word-break: break-all; }
+
+    /* 하단 상태 바 */
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      padding: 10px 18px;
+      background: var(--panel);
+      border-top: 1px solid var(--panel-2);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .status-strip b { color: var(--text); font-weight: 600; }
+
+    @media (max-width: 760px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ingest-page">
+    <header class="ingest-header">
+      <h1>🎛️ BEWE Ingest Hub</h1>
+      <span id="connBadge" class="badge"><span class="dot"></span><span id="connText">서버 연결 중…</span></span>
+      <div class="spacer"></div>
+      <label id="addrLabel" for="addrSelect">접속 주소</label>
+      <select id="addrSelect" title="휴대폰이 접속할 주소 선택"></select>
+    </header>
+
+    <main class="cards">
+      <!-- 카메라 슬롯 1 -->
+      <section class="card cam-card">
+        <div class="card-head">
+          <h2>📱 CAM 1</h2>
+          <span id="slotBadge1" class="badge"><span class="dot"></span><span id="slotText1">대기</span></span>
+        </div>
+        <img id="qr1" class="qr" alt="CAM 1 접속 QR 코드" />
+        <div id="addr1" class="cam-addr">…</div>
+        <p class="cam-hint">휴대폰 1로 QR을 스캔한 뒤 <b>[방송 시작]</b>을 누르세요.</p>
+      </section>
+
+      <!-- 카메라 슬롯 2 -->
+      <section class="card cam-card">
+        <div class="card-head">
+          <h2>📱 CAM 2</h2>
+          <span id="slotBadge2" class="badge"><span class="dot"></span><span id="slotText2">대기</span></span>
+        </div>
+        <img id="qr2" class="qr" alt="CAM 2 접속 QR 코드" />
+        <div id="addr2" class="cam-addr">…</div>
+        <p class="cam-hint">휴대폰 2로 QR을 스캔한 뒤 <b>[방송 시작]</b>을 누르세요.</p>
+      </section>
+
+      <!-- APP 캡처 (슬롯 3) -->
+      <section class="card app-card">
+        <div class="card-head">
+          <h2>🖥️ APP — 창 캡처</h2>
+          <span id="slotBadge3" class="badge"><span class="dot"></span><span id="slotText3">대기</span></span>
+        </div>
+        <div id="appIdle" class="app-idle">
+          <div class="app-row">
+            <button id="pickBtn" class="btn primary sm">창 선택</button>
+            <button id="resumeBtn" class="btn sm hidden"></button>
+          </div>
+          <div id="appMsg" class="app-msg"></div>
+          <div id="winList" class="win-list hidden"></div>
+        </div>
+        <div id="appLive" class="app-live hidden">
+          <video id="appPreview" muted autoplay playsinline></video>
+          <div class="app-live-info">
+            <span class="badge ok"><span class="dot"></span>캡처 중</span>
+            <div id="appTitle" class="app-title"></div>
+            <button id="stopCaptureBtn" class="btn danger sm">캡처 중지</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="status-strip">
+      <span>서버 <b id="srvAddr">…</b></span>
+      <span>연결된 모니터 <b id="viewerCount">0</b></span>
+      <span id="slotSummary">슬롯: …</span>
+    </footer>
+  </div>
+
+  <script src="/ingest.js"></script>
+</body>
+</html>

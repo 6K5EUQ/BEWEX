@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BEWE Mission Monitor</title>
+  <link rel="stylesheet" href="/monitor.css" />
+</head>
+<body>
+  <!-- WS 끊김 시 상단 배너 -->
+  <div id="reconnectBanner" class="hidden">RECONNECTING</div>
+
+  <!-- 고정 3슬롯: #slot1(CAM 1) / #slot2(CAM 2) / #slot3(APP) — 항상 DOM에 존재 -->
+  <main id="layoutRoot" class="layout-main">
+    <section class="feed-panel" id="slot1" data-slot="1">
+      <video class="feed-video hidden" autoplay playsinline muted></video>
+      <img class="feed-frame hidden" alt="" />
+      <div class="acquiring hidden">
+        <span class="acquiring-text">ACQUIRING SIGNAL</span>
+      </div>
+      <div class="nosignal">
+        <span class="nosignal-text">NO SIGNAL</span>
+        <span class="nosignal-slot">CAM 1</span>
+      </div>
+      <header class="feed-head">
+        <span class="feed-status off"><span class="dot"></span><span class="feed-status-text">NO SIGNAL</span></span>
+        <span class="feed-name">CAM 1</span>
+        <span class="feed-mode"></span>
+      </header>
+      <footer class="feed-foot">
+        <span class="feed-stats"></span>
+        <span class="spacer"></span>
+        <button class="feed-mute hidden" title="소리 켜기/끄기">MUTED</button>
+      </footer>
+    </section>
+
+    <section class="feed-panel" id="slot2" data-slot="2">
+      <video class="feed-video hidden" autoplay playsinline muted></video>
+      <img class="feed-frame hidden" alt="" />
+      <div class="acquiring hidden">
+        <span class="acquiring-text">ACQUIRING SIGNAL</span>
+      </div>
+      <div class="nosignal">
+        <span class="nosignal-text">NO SIGNAL</span>
+        <span class="nosignal-slot">CAM 2</span>
+      </div>
+      <header class="feed-head">
+        <span class="feed-status off"><span class="dot"></span><span class="feed-status-text">NO SIGNAL</span></span>
+        <span class="feed-name">CAM 2</span>
+        <span class="feed-mode"></span>
+      </header>
+      <footer class="feed-foot">
+        <span class="feed-stats"></span>
+        <span class="spacer"></span>
+        <button class="feed-mute hidden" title="소리 켜기/끄기">MUTED</button>
+      </footer>
+    </section>
+
+    <section class="feed-panel" id="slot3" data-slot="3">
+      <video class="feed-video hidden" autoplay playsinline muted></video>
+      <img class="feed-frame hidden" alt="" />
+      <div class="acquiring hidden">
+        <span class="acquiring-text">ACQUIRING SIGNAL</span>
+      </div>
+      <div class="nosignal">
+        <span class="nosignal-text">NO SIGNAL</span>
+        <span class="nosignal-slot">APP</span>
+      </div>
+      <header class="feed-head">
+        <span class="feed-status off"><span class="dot"></span><span class="feed-status-text">NO SIGNAL</span></span>
+        <span class="feed-name">APP</span>
+        <span class="feed-mode"></span>
+      </header>
+      <footer class="feed-foot">
+        <span class="feed-stats"></span>
+        <span class="spacer"></span>
+        <button class="feed-mute hidden" title="소리 켜기/끄기">MUTED</button>
+      </footer>
+    </section>
+  </main>
+
+  <!-- 하단 상태 바 -->
+  <footer id="statusBar">
+    <span class="brand">BEWE<span class="accent"> · </span>MISSION MONITOR</span>
+    <span class="sep"></span>
+    <span class="bar-item">
+      <span id="missionClock">T+ 00:00:00</span>
+      <button id="clockBtn" title="미션 클록 시작/리셋">T-0 START</button>
+    </span>
+    <span class="sep"></span>
+    <span class="bar-item"><span class="label">LOCAL</span><span id="localClock" class="value">--:--:--</span></span>
+    <span class="bar-item"><span class="label">UTC</span><span id="utcClock" class="value">--:--:--</span></span>
+    <span class="spacer"></span>
+    <span id="unassignedText" class="warn-text"></span>
+    <span class="bar-item"><span class="label">STATUS</span><span id="connText" class="value">CONNECTING…</span></span>
+    <span class="bar-item"><span class="label">VIEWERS</span><span id="viewerCount" class="value">0</span></span>
+    <span class="bar-item"><span class="label">HUB</span><span id="hubAddr" class="value">—</span></span>
+    <button id="layoutBtn" title="레이아웃 전환 (단축키 L)">LAYOUT: MAIN</button>
+  </footer>
+
+  <script src="/monitor.js" defer></script>
+</body>
+</html>

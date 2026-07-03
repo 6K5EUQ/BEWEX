@@ -1,0 +1,32 @@
+{
+  "appId": "kr.co.bewe.ingesthub",
+  "productName": "BEWE Ingest Hub",
+  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+  "extraMetadata": {
+    "main": "ingest-main.js"
+  },
+  "directories": {
+    "output": "release/ingest"
+  },
+  "files": [
+    "ingest-main.js",
+    "ingest-preload.js",
+    "server/**/*",
+    "public/**/*",
+    "assets/**/*"
+  ],
+  "linux": {
+    "target": [
+      "AppImage"
+    ],
+    "category": "AudioVideo",
+    "icon": "assets/icon.png"
+  },
+  "win": {
+    "target": [
+      "portable"
+    ],
+    "icon": "assets/icon.png",
+    "signAndEditExecutable": false
+  }
+}

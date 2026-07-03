@@ -1,17 +1,23 @@
 {
-  "name": "phone-cam-viewer",
-  "version": "1.0.0",
-  "description": "스마트폰 카메라 영상을 실시간으로 데스크톱에서 보는 프로그램",
-  "main": "main.js",
+  "name": "bewe-streaming",
+  "version": "2.0.0",
+  "description": "BEWE 스트리밍 — Ingest Hub(휴대폰 카메라 2대 + 창 캡처 송출 허브)와 Mission Monitor(SpaceX 스타일 3분할 관제 모니터)",
+  "main": "ingest-main.js",
   "author": "bewe",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
+    "start": "electron ingest-main.js",
+    "start:ingest": "electron ingest-main.js",
+    "start:monitor": "electron monitor-main.js",
     "test": "node test/signaling-test.js",
-    "test:e2e": "node test/e2e-test.js && node test/fallback-e2e-test.js && node test/screenshare-e2e-test.js",
-    "dist:linux": "electron-builder --linux",
-    "dist:win": "electron-builder --win",
-    "dist": "electron-builder --linux --win"
+    "test:e2e": "node test/e2e-test.js && node test/fallback-e2e-test.js && node test/app-relay-e2e-test.js",
+    "dist:ingest:linux": "bash scripts/dist.sh ingest linux",
+    "dist:ingest:win": "bash scripts/dist.sh ingest win",
+    "dist:monitor:linux": "bash scripts/dist.sh monitor linux",
+    "dist:monitor:win": "bash scripts/dist.sh monitor win",
+    "install:ingest": "bash scripts/install-desktop.sh ingest",
+    "install:monitor": "bash scripts/install-desktop.sh monitor",
+    "install:desktop": "bash scripts/install-desktop.sh both"
   },
   "dependencies": {
     "express": "^4.21.2",
@@ -23,33 +29,5 @@
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
     "playwright-core": "^1.61.1"
-  },
-  "build": {
-    "appId": "kr.co.bewe.phonecamviewer",
-    "productName": "PhoneCam Viewer",
-    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "main.js",
-      "server/**/*",
-      "public/**/*",
-      "assets/**/*"
-    ],
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "AudioVideo",
-      "icon": "assets/icon.png"
-    },
-    "win": {
-      "target": [
-        "portable"
-      ],
-      "icon": "assets/icon.png",
-      "signAndEditExecutable": false
-    }
   }
 }

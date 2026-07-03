@@ -11,6 +11,9 @@
   const statusText = $('statusText');
   const modeBadge = $('modeBadge');
   const modeText = $('modeText');
+  const slotBadge = $('slotBadge');
+  const slotText = $('slotText');
+  const slotTag = $('slotTag');
   const nameInput = $('nameInput');
   const audioCheck = $('audioCheck');
   const startBtn = $('startBtn');
@@ -39,6 +42,18 @@
 
   nameInput.value = localStorage.getItem('phonecam-name') || '';
 
+  // ---------- 슬롯 지정 접속 (?slot=1|2) ----------
+  // QR로 들어온 슬롯 번호. 1|2 외의 값은 무시한다.
+  const slot = (() => {
+    const v = new URLSearchParams(location.search).get('slot');
+    return v === '1' || v === '2' ? Number(v) : null;
+  })();
+  if (slot) {
+    slotTag.textContent = `CAM ${slot}`;
+    slotTag.classList.remove('hidden');
+    nameInput.placeholder = `CAM ${slot}`;
+  }
+
   // ---------- UI ----------
   function setStatus(kind, text) {
     statusBadge.className = 'badge ' + kind;
@@ -52,6 +67,15 @@
     modeBadge.classList.remove('hidden');
     modeBadge.className = 'badge ' + (fallback ? 'warn' : 'ok');
     modeText.textContent = text;
+  }
+  // 서버가 배정한 슬롯 번호 배지 (registered.slot)
+  function setSlotBadge(n) {
+    if (!n) {
+      slotBadge.classList.add('hidden');
+      return;
+    }
+    slotBadge.className = 'badge ok';
+    slotText.textContent = `SLOT ${n}`;
   }
 
   // ---------- 카메라 ----------
@@ -172,6 +196,7 @@
         type: 'register',
         role: 'broadcaster',
         name: nameInput.value.trim() || undefined,
+        slot: slot || undefined,
       });
     };
 
@@ -181,8 +206,19 @@
       handleMessage(msg);
     };
 
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
       cleanupPeers();
+      // 서버가 등록을 거부한 경우: 재연결하지 않고 송출을 종료한다
+      if (ev.code === 4002) {
+        alert('다른 기기가 이 슬롯으로 접속하여 송출이 종료되었습니다.');
+        stopBroadcast();
+        return;
+      }
+      if (ev.code === 4003) {
+        alert('모든 카메라 슬롯이 사용 중입니다.');
+        stopBroadcast();
+        return;
+      }
       if (!broadcasting) return;
       setStatus('warn', '연결 끊김 · 재연결 중…');
       clearTimeout(reconnectTimer);
@@ -195,6 +231,7 @@
       case 'registered':
         setStatus('ok', fallback ? '송출 중 (보조 모드)' : '송출 중');
         setMode(fallback ? '보조 모드' : 'WebRTC');
+        if (msg.slot) setSlotBadge(msg.slot);
         // 재연결 시 보조 모드였다면 그대로 이어서 방송
         if (fallback) wsSend({ type: 'fallback-start' });
         break;
@@ -388,6 +425,7 @@
     }
     setStatus('', '대기 중');
     setMode('');
+    setSlotBadge(null);
     startBtn.classList.remove('hidden');
     startBtn.disabled = false;
     liveControls.classList.add('hidden');
