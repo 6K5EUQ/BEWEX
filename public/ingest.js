@@ -343,7 +343,9 @@
     appMsg.textContent = '';
     pickBtn.disabled = true;
     try {
-      await window.ingestAPI.selectSource(sourceId);
+      // Wayland: OS picker가 대상을 고르므로 selectSource 생략(sourceId 없음).
+      // X11: 앱 목록에서 고른 창 id를 메인에 저장한 뒤 캡처.
+      if (!window.ingestAPI.isWayland) await window.ingestAPI.selectSource(sourceId);
       capStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 30 } },
         audio: false,
@@ -362,6 +364,8 @@
       try { track.contentHint = 'detail'; } catch (_) {} // 텍스트 위주 창 선명도 우선
       track.addEventListener('ended', stopCapture);      // 캡처 대상 창이 사라진 경우
     }
+    // Wayland는 title이 없다(OS picker가 골랐다) → 트랙 라벨에서 창 이름을 얻는다.
+    if (!title && track && track.label) title = track.label;
 
     capturing = true;
     capFallback = false;
@@ -370,7 +374,7 @@
 
     appPreview.srcObject = capStream;
     appPreview.play().catch(() => {});
-    appTitle.textContent = title;
+    appTitle.textContent = title || 'APP';
     appIdle.classList.add('hidden');
     appLive.classList.remove('hidden');
 
@@ -464,6 +468,11 @@
   }
 
   pickBtn.addEventListener('click', () => {
+    // Wayland: 앱 자체 목록은 반쪽만 잡히므로 건너뛰고 OS picker를 바로 띄운다.
+    if (window.ingestAPI && window.ingestAPI.isWayland) {
+      startCapture(null, '');
+      return;
+    }
     if (listOpen) closeWinList();
     else openWinList();
   });
