@@ -350,9 +350,8 @@
         video: { frameRate: { ideal: 30 } },
         audio: false,
       });
-    } catch (err) {
+    } catch (_) {
       // getDisplayMedia 거부: 사용자가 picker를 취소했거나 창이 닫힌 경우 등.
-      console.error('[cap] getDisplayMedia 실패:', err && err.name, err && err.message);
       appMsg.textContent = '창을 캡처할 수 없습니다. (취소했거나 창이 닫혔을 수 있음) 다시 선택해 주세요.';
       pickBtn.disabled = false;
       updateResumeBtn();
