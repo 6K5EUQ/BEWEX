@@ -130,23 +130,27 @@ if (!app.requestSingleInstanceLock()) {
       return true;
     });
 
-    // getDisplayMedia() 호출 시 캡처 대상 결정.
-    // Wayland: 핸들러를 등록하지 않는다. 그러면 Chromium 기본 경로(xdg-desktop-portal)가
-    //   동작해 OS picker가 한 번 뜨고 사용자가 고른 창이 그대로 캡처된다.
-    //   (useSystemPicker 옵션은 macOS 15+ 전용이라 Linux에선 무의미하다.)
+    // getDisplayMedia() 호출 시 캡처 대상 결정. Electron은 핸들러를 등록하지 않으면
+    // getDisplayMedia를 거부하므로(Chromium과 달리 기본 picker가 없다) 양쪽 다 등록한다.
+    // Wayland/PipeWire: getSources()가 소스를 딱 1개만 돌려주는데, 그 소스를 callback에
+    //   넘기면 xdg-desktop-portal picker가 떠서 사용자가 실제 창을 고른다(창별 id 매칭 불가).
     // X11: 앱 자체 목록에서 고른 selectedSourceId로 OS 창 없이 바로 캡처.
     const isWayland = process.env.XDG_SESSION_TYPE === 'wayland';
-    if (!isWayland) {
-      session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-        if (!selectedSourceId) { callback({}); return; }
-        desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } })
-          .then((sources) => {
-            const source = sources.find((s) => s.id === selectedSourceId);
-            callback(source ? { video: source } : {});
-          })
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      if (isWayland) {
+        desktopCapturer.getSources({ types: ['window', 'screen'] })
+          .then((sources) => callback(sources[0] ? { video: sources[0] } : {}))
           .catch(() => callback({}));
-      });
-    }
+        return;
+      }
+      if (!selectedSourceId) { callback({}); return; }
+      desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } })
+        .then((sources) => {
+          const source = sources.find((s) => s.id === selectedSourceId);
+          callback(source ? { video: source } : {});
+        })
+        .catch(() => callback({}));
+    });
 
     createWindow();
   });
