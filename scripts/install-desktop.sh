@@ -7,62 +7,40 @@
 #   ./scripts/install-desktop.sh both      # 둘 다 설치
 #
 # 하는 일:
-#   1. release/ 에서 빌드된 AppImage를 ~/.local/opt/bewe/ 로 복사
-#   2. 앱 메뉴 등록 (~/.local/share/applications/*.desktop)
-#   3. 바탕화면 아이콘 생성 (+ GNOME "실행 허용" 신뢰 플래그 설정)
+#   1. 앱 메뉴 등록 (~/.local/share/applications/*.desktop)
+#   2. 바탕화면 아이콘 생성 (+ GNOME "실행 허용" 신뢰 플래그 설정)
+#
+# 핵심: 아이콘은 AppImage가 아니라 이 저장소의 소스를 직접 실행한다(scripts/bewe-run.sh).
+#       따라서 `git pull`로 코드를 갱신하면 재빌드 없이 아이콘 실행만으로 최신 코드가 뜬다.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET="${1:-monitor}"
-INSTALL_DIR="$HOME/.local/opt/bewe"
+RUNNER="$ROOT/scripts/bewe-run.sh"
 APPS_DIR="$HOME/.local/share/applications"
 DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
 
+chmod +x "$RUNNER"
+
 install_one() {
-  local key="$1" name="$2" comment="$3" glob="$4"
+  local key="$1" name="$2" comment="$3"
 
-  # 빌드 산출물 찾기
-  local appimage
-  appimage=$(ls "$ROOT"/release/"$key"/*.AppImage 2>/dev/null | head -1 || true)
-  if [ -z "$appimage" ]; then
-    echo "실패: release/$key/ 에 AppImage가 없습니다. 먼저 빌드하세요:"
-    echo "  npm run dist:$key:linux"
-    return 1
-  fi
+  mkdir -p "$APPS_DIR"
 
-  mkdir -p "$INSTALL_DIR" "$APPS_DIR"
-  local dest="$INSTALL_DIR/$glob"
-  cp -f "$appimage" "$dest"
-  chmod +x "$dest"
-  cp -f "$ROOT/assets/icon.png" "$INSTALL_DIR/$key-icon.png"
-
-  # 실행 명령 결정 — libfuse.so.2(FUSE2)가 있으면 AppImage 직접 실행(빠름),
-  # 없으면 설치 시점에 압축해제해 두고 그 안의 AppRun을 실행(FUSE 불필요).
-  local exec_cmd="$dest"
-  if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
-    echo "libfuse2 미설치 → AppImage를 압축해제해 FUSE 없이 실행하도록 설정합니다."
-    local appdir="$INSTALL_DIR/$key.AppDir"
-    rm -rf "$appdir"
-    # extract는 실행 위치에 squashfs-root/ 를 생성하므로 대상 폴더 안에서 수행
-    ( cd "$INSTALL_DIR" && "$dest" --appimage-extract >/dev/null 2>&1 )
-    if [ -d "$INSTALL_DIR/squashfs-root" ]; then
-      mv "$INSTALL_DIR/squashfs-root" "$appdir"
-      exec_cmd="$appdir/AppRun"
-    else
-      echo "압축해제 실패 — extract-and-run 방식으로 대체합니다(실행이 느릴 수 있음)."
-      exec_cmd="$dest --appimage-extract-and-run"
-    fi
-  fi
+  # 아이콘 파일 (있으면 사용, 없으면 이름만)
+  local icon="$ROOT/assets/icon.png"
 
   # .desktop 런처 (앱 메뉴 + 바탕화면 공용)
+  # Exec은 소스 실행 런처를 가리킨다. Path로 작업 디렉터리를 저장소 루트로 고정한다.
   local desktop_file="$APPS_DIR/bewe-$key.desktop"
   cat > "$desktop_file" <<EOF
 [Desktop Entry]
 Type=Application
 Name=$name
 Comment=$comment
-Exec=$exec_cmd
-Icon=$INSTALL_DIR/$key-icon.png
+Exec=$RUNNER $key
+Path=$ROOT
+Icon=$icon
 Terminal=false
 Categories=AudioVideo;Network;
 StartupNotify=true
@@ -78,21 +56,21 @@ EOF
   fi
 
   echo "$name 설치 완료"
-  echo "  실행명령 : $exec_cmd"
+  echo "  실행명령 : $RUNNER $key"
   echo "  앱 메뉴  : $desktop_file"
   [ -d "$DESKTOP_DIR" ] && echo "  바탕화면 : $DESKTOP_DIR/bewe-$key.desktop"
 }
 
 case "$TARGET" in
   monitor)
-    install_one monitor "BEWE Mission Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어" "BEWE-Mission-Monitor.AppImage"
+    install_one monitor "BEWE Mission Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어"
     ;;
   ingest)
-    install_one ingest "BEWE Ingest Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출" "BEWE-Ingest-Hub.AppImage"
+    install_one ingest "BEWE Ingest Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출"
     ;;
   both)
-    install_one monitor "BEWE Mission Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어" "BEWE-Mission-Monitor.AppImage"
-    install_one ingest "BEWE Ingest Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출" "BEWE-Ingest-Hub.AppImage"
+    install_one monitor "BEWE Mission Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어"
+    install_one ingest "BEWE Ingest Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출"
     ;;
   *)
     echo "사용법: $0 [monitor|ingest|both]" >&2
@@ -101,5 +79,5 @@ case "$TARGET" in
 esac
 
 echo ""
+echo "코드 업데이트: 이 저장소에서 'git pull' 하면 다음 아이콘 실행부터 최신 코드로 뜹니다(재빌드 불필요)."
 echo "아이콘이 바탕화면에서 '실행 안 됨'으로 나오면: 아이콘 우클릭 → '실행 허용(Allow Launching)'"
-echo "AppImage 실행에 FUSE 필요: sudo apt install libfuse2"

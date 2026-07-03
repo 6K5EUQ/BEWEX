@@ -186,20 +186,37 @@ npm run dist:monitor:win     # Mission Monitor Windows portable → release/moni
 - AppImage 실행에는 FUSE가 필요합니다. Ubuntu 22.04+에서는 `sudo apt install libfuse2`,
   또는 FUSE 없이 `./앱이름-*.AppImage --appimage-extract-and-run`으로 실행.
 
-## 바탕화면 설치 (Linux)
+## 바탕화면 설치 (Linux) — 소스 직접 실행
 
-빌드된 AppImage를 바탕화면 아이콘 + 앱 메뉴로 설치합니다.
+바탕화면 아이콘이 **이 저장소의 소스를 직접 실행**합니다(AppImage 빌드 불필요).
+따라서 `git pull`로 코드를 갱신하면 다음 아이콘 실행부터 최신 코드가 뜹니다. 재빌드 없음.
 
 ```bash
-npm run dist:monitor:linux   # 먼저 빌드
-npm run install:monitor      # Mission Monitor 바탕화면 설치
-npm run install:ingest       # Ingest Hub 바탕화면 설치
+git clone <repo> && cd bewe_streaming
+npm install                  # 최초 1회 (아이콘 최초 실행 시 자동 설치도 됨)
+npm run install:monitor      # Mission Monitor 바탕화면 아이콘 설치
+npm run install:ingest       # Ingest Hub 바탕화면 아이콘 설치
 npm run install:desktop      # 둘 다 설치
 ```
 
-- AppImage는 `~/.local/opt/bewe/`로 복사되고, 런처가 앱 메뉴와 바탕화면에 등록됩니다.
+코드 업데이트 흐름:
+
+```bash
+cd bewe_streaming
+git pull                     # 소스 갱신
+# 끝. 바탕화면 아이콘을 다시 누르면 최신 코드로 실행됨.
+```
+
+- 아이콘의 `Exec`은 `scripts/bewe-run.sh <ingest|monitor>`를 가리키며, 이 런처가
+  저장소 루트에서 `electron`으로 소스를 바로 띄웁니다(`Path`로 작업 디렉터리 고정).
+- 런처는 nvm이 로드되지 않은 GUI 세션(GNOME 더블클릭)에서도 node를 찾도록 PATH를
+  직접 보정하고, `node_modules`가 없거나 `package-lock.json`이 바뀌면 `npm ci`를 자동 실행합니다.
+- 저장소를 옮기면 아이콘의 경로가 깨지므로 `npm run install:desktop`을 다시 실행하세요.
 - 바탕화면 아이콘이 "실행 안 됨"으로 나오면: 아이콘 우클릭 → 실행 허용(Allow Launching).
   (스크립트가 GNOME 신뢰 플래그를 자동 설정하지만 일부 환경은 수동 허용 필요)
+
+> AppImage 빌드(`npm run dist:*`)는 배포용/윈도우용으로 여전히 유효하지만,
+> 바탕화면 아이콘 설치에는 더 이상 필요하지 않습니다.
 
 ## 구조
 
@@ -219,8 +236,9 @@ public/style.css              공용 스타일
 deploy/bewe-server.service    systemd 서비스 템플릿 (배포 스크립트가 사용자/경로 치환)
 scripts/deploy-central.sh     라파 중앙 서버 배포 (rsync + npm install + systemd 등록)
 scripts/run-server-local.sh   로컬에서 서버만 띄워 검증
-scripts/install-desktop.sh    Linux 바탕화면 아이콘 설치 스크립트
-scripts/dist.sh               electron-builder 빌드 래퍼
+scripts/install-desktop.sh    Linux 바탕화면 아이콘 설치 (아이콘 → bewe-run.sh 연결)
+scripts/bewe-run.sh           소스 직접 실행 런처 (git pull 후 재빌드 없이 최신 코드 실행)
+scripts/dist.sh               electron-builder 빌드 래퍼 (배포/윈도우용)
 test/signaling-test.js        시그널링 통합 테스트
 test/e2e-test.js              모바일→모니터 E2E
 test/fallback-e2e-test.js     보조 모드(RELAY) E2E
