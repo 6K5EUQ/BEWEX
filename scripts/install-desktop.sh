@@ -63,14 +63,14 @@ EOF
 
 case "$TARGET" in
   monitor)
-    install_one monitor "BEWE Mission Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어"
+    install_one monitor "BEWEX Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어"
     ;;
   ingest)
-    install_one ingest "BEWE Ingest Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출"
+    install_one ingest "BEWEX Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출"
     ;;
   both)
-    install_one monitor "BEWE Mission Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어"
-    install_one ingest "BEWE Ingest Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출"
+    install_one monitor "BEWEX Monitor" "관제 모니터 — 카메라/화면 피드 3분할 뷰어"
+    install_one ingest "BEWEX Hub" "연결 허브 — 휴대폰 카메라 QR 접속 + 창 캡처 송출"
     ;;
   *)
     echo "사용법: $0 [monitor|ingest|both]" >&2
