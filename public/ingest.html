@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BEWEX Hub</title>
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="./style.css" />
   <style>
     /* Ingest Hub 전용 스타일 */
     .ingest-page {
@@ -118,20 +118,28 @@
     .app-live-info { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
     .app-title { font-size: 14px; font-weight: 700; word-break: break-all; }
 
-    /* 하단 상태 바 */
+    /* 하단 상태 바 (monitor.js #statusBar와 동일 구조) */
     .status-strip {
+      flex: none;
       display: flex;
       align-items: center;
-      gap: 24px;
-      flex-wrap: wrap;
-      padding: 10px 18px;
+      gap: 14px;
+      padding: 5px 10px;
       background: var(--panel);
       border-top: 1px solid var(--panel-2);
       font-size: 13px;
-      color: var(--muted);
     }
-    .status-strip b { color: var(--text); font-weight: 600; }
-    .status-strip .spacer { flex: 1; }
+    .bar-side { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 14px; }
+    .bar-left { justify-content: flex-start; }
+    .bar-right { justify-content: flex-end; }
+    .bar-center { flex: none; display: flex; align-items: center; gap: 14px; }
+    .sep { width: 1px; height: 16px; background: var(--panel-2); flex: none; }
+    .bar-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .label { color: var(--muted); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; }
+    .value { color: var(--text); letter-spacing: .06em; }
+    #missionClock { color: var(--accent); font-size: 14px; font-weight: 700; letter-spacing: .08em; cursor: pointer; padding: 2px 6px; border-radius: 2px; }
+    #missionClock:hover { background: rgba(106, 176, 255, .1); }
+    #missionClock.armed { color: var(--danger); }
 
     @media (max-width: 760px) {
       .cards { grid-template-columns: 1fr; }
@@ -191,12 +199,25 @@
     </main>
 
     <footer class="status-strip">
-      <div class="spacer"></div>
-      <span>연결된 모니터 <b id="viewerCount">0</b></span>
-      <span id="connBadge" class="badge"><span class="dot"></span><span id="connText">서버 연결 중…</span></span>
+      <span class="bar-side bar-left">
+        <span class="bar-item">
+          <span id="connBadge" class="badge"><span class="dot"></span></span>
+          <span class="label">SERVER</span>
+        </span>
+      </span>
+      <span class="bar-center">
+        <span class="bar-item"><span class="label">UTC</span><span id="utcClock" class="value">--:--:--</span></span>
+        <span class="sep"></span>
+        <span class="bar-item">
+          <span id="missionClock" title="클릭: 시작/일시정지 · 우클릭: 리셋">T+ 00:00:00</span>
+        </span>
+        <span class="sep"></span>
+        <span class="bar-item"><span class="label">LOCAL</span><span id="localClock" class="value">--:--:--</span></span>
+      </span>
+      <span class="bar-side bar-right"></span>
     </footer>
   </div>
 
-  <script src="/ingest.js"></script>
+  <script src="./ingest.js"></script>
 </body>
 </html>

@@ -5,7 +5,6 @@
 
   const $ = (id) => document.getElementById(id);
   const connBadge = $('connBadge');
-  const connText = $('connText');
   const addrLabel = $('addrLabel');
   const addrSelect = $('addrSelect');
   const pickBtn = $('pickBtn');
@@ -17,7 +16,9 @@
   const appPreview = $('appPreview');
   const appTitle = $('appTitle');
   const stopCaptureBtn = $('stopCaptureBtn');
-  const viewerCountEl = $('viewerCount');
+  const missionClockEl = $('missionClock');
+  const localClockEl = $('localClock');
+  const utcClockEl = $('utcClock');
 
   const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   const CONNECT_TIMEOUT_MS = 10000; // 이 시간 안에 WebRTC 연결이 안 되면 보조 모드
@@ -27,12 +28,17 @@
 
   const SLOT_LABEL = { 1: 'CAM 1', 2: 'CAM 2', 3: 'APP' };
 
+  // 서버 주소: Electron이 주입한 window.__BEWE__ 우선, 없으면 페이지 origin(원격 로드 호환)
+  const SERVER = (window.__BEWE__ && window.__BEWE__.host)
+    ? `${window.__BEWE__.host}:${window.__BEWE__.port}`
+    : location.host;
+  const API = `https://${SERVER}`;
+
   let serverPort = null;
   let currentIp = null;
 
-  function setConn(kind, text) {
+  function setConn(kind) {
     connBadge.className = 'badge ' + kind;
-    connText.textContent = text;
   }
 
   // 접속 주소 선택 + QR
@@ -49,7 +55,7 @@
     currentIp = ip;
     await Promise.all([1, 2].map(async (n) => {
       try {
-        const r = await fetch(`/api/qr?ip=${encodeURIComponent(ip)}&slot=${n}`);
+        const r = await fetch(`${API}/api/qr?ip=${encodeURIComponent(ip)}&slot=${n}`);
         const d = await r.json();
         if (d.qr) $(`qr${n}`).src = d.qr;
       } catch (_) { /* QR 갱신 실패 시 주소 텍스트는 이미 갱신됨 */ }
@@ -105,7 +111,7 @@
   function handleObserverMessage(msg) {
     switch (msg.type) {
       case 'registered':
-        setConn('ok', '허브 연결됨');
+        setConn('ok');
         slotState.clear();
         idToSlot.clear();
         for (const b of msg.broadcasters || []) addBroadcaster(b);
@@ -127,16 +133,13 @@
         }
         break;
       }
-      case 'viewer-count':
-        viewerCountEl.textContent = msg.count;
-        break;
       default:
         break; // observer는 watch를 보내지 않으므로 offer/frame 등은 오지 않음
     }
   }
 
   function connectObserver() {
-    obsWs = new WebSocket(`wss://${location.host}/ws`);
+    obsWs = new WebSocket(`wss://${SERVER}/ws`);
     obsWs.onopen = () => {
       // observer: 이벤트만 받고 frame 릴레이·viewer-count에서 제외되는 상태판 전용 뷰어
       obsWs.send(JSON.stringify({ type: 'register', role: 'viewer', observer: true }));
@@ -147,7 +150,7 @@
       handleObserverMessage(msg);
     };
     obsWs.onclose = () => {
-      setConn('err', '서버 재연결 중…');
+      setConn('err');
       clearTimeout(obsReconnectTimer);
       obsReconnectTimer = setTimeout(connectObserver, 3000);
     };
@@ -284,7 +287,7 @@
   }
 
   function connectCapWS() {
-    capWs = new WebSocket(`wss://${location.host}/ws`);
+    capWs = new WebSocket(`wss://${SERVER}/ws`);
 
     capWs.onopen = () => {
       capSend({ type: 'register', role: 'broadcaster', slot: 3, kind: 'app', name: capName });
@@ -498,10 +501,10 @@
 
     let info;
     try {
-      const res = await fetch('/api/info');
+      const res = await fetch(`${API}/api/info`);
       info = await res.json();
     } catch (_) {
-      setConn('err', '서버 정보를 가져오지 못했습니다');
+      setConn('err');
       return;
     }
     serverPort = info.port;
@@ -532,6 +535,56 @@
     connectObserver();
     updateResumeBtn();
   }
+
+  // 미션 클록 + 시계
+  // 미션 클록: 좌클릭 = 시작/일시정지 토글, 우클릭 = 리셋(확인)
+  let clockRunning = false;
+  let clockStartedAt = 0;    // 현재 구간 시작 시각 (epoch ms)
+  let clockAccumulated = 0;  // 일시정지로 누적된 경과 (ms)
+
+  function elapsedMs() {
+    return clockAccumulated + (clockRunning ? Date.now() - clockStartedAt : 0);
+  }
+
+  missionClockEl.addEventListener('click', () => {
+    if (clockRunning) {
+      // 일시정지: 현재 구간을 누적에 합산
+      clockAccumulated += Date.now() - clockStartedAt;
+      clockRunning = false;
+    } else {
+      // 시작/재개
+      clockStartedAt = Date.now();
+      clockRunning = true;
+    }
+    missionClockEl.classList.toggle('armed', clockRunning);
+    renderClocks();
+  });
+
+  missionClockEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (!confirm('미션 클록을 리셋하시겠습니까?')) return;
+    clockRunning = false;
+    clockStartedAt = 0;
+    clockAccumulated = 0;
+    missionClockEl.classList.remove('armed');
+    missionClockEl.textContent = 'T+ 00:00:00';
+  });
+
+  const two = (n) => String(n).padStart(2, '0');
+
+  function renderClocks() {
+    if (clockRunning || clockAccumulated > 0) {
+      let s = Math.max(0, Math.floor(elapsedMs() / 1000));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      missionClockEl.textContent = `T+ ${two(h)}:${two(m)}:${two(s % 60)}`;
+    }
+    const now = new Date();
+    localClockEl.textContent = `${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`;
+    utcClockEl.textContent = `${two(now.getUTCHours())}:${two(now.getUTCMinutes())}:${two(now.getUTCSeconds())}`;
+  }
+  setInterval(renderClocks, 250);
+  renderClocks();
 
   init();
 })();
