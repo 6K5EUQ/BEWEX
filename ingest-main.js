@@ -61,6 +61,8 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'ingest-preload.js'),
+      // UI(file://)에 central 서버 주소를 전달 → WS/API를 이 주소로 연결
+      additionalArguments: [`--bewe-server=${CENTRAL_HOST}:${CENTRAL_PORT}`],
     },
   });
   win.setMenuBarVisibility(false);
@@ -75,11 +77,13 @@ function createWindow() {
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (!isMainFrame) return;
     if (errorCode === -3) return; // ERR_ABORTED: 새 loadURL이 이전 로드를 취소한 경우
+    if (!/^https?:/i.test(validatedURL || '')) return; // 로컬 UI(file://) 로드 실패는 무시
     win.loadURL(RETRY_HTML).catch(() => {});
     scheduleRetry();
   });
 
-  win.loadURL(CENTRAL_URL).catch(() => {});
+  // UI는 로컬 소스(public/ingest.html)에서 로드하고, WS/API/시그널링만 central 서버로 붙는다.
+  win.loadFile(path.join(__dirname, 'public', 'ingest.html')).catch(() => {});
 }
 
 // 락 획득 실패 후에도 whenReady가 실행되므로 초기화 전체를 락 획득 분기 안에 둔다

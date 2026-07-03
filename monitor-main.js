@@ -47,6 +47,14 @@ function loadMonitor(host, port) {
   win.loadURL(`https://${host}:${port}/monitor`).catch(() => {});
 }
 
+// UI는 로컬 소스(public/monitor.html)에서 로드하고, WS/시그널링만 central 서버로 붙는다.
+// central 주소는 preload가 additionalArguments로 받아 window.__BEWE__ 로 노출한다.
+function loadLocalMonitor() {
+  if (!win) return;
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  win.loadFile(path.join(__dirname, 'public', 'monitor.html')).catch(() => {});
+}
+
 // 로드 실패 후 5초 뒤 현재 대상으로 재접속
 function scheduleRetry() {
   if (retryTimer || !win) return;
@@ -69,6 +77,8 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'monitor-preload.js'),
+      // UI(file://)에 central 서버 주소를 전달 → WS를 이 주소로 연결
+      additionalArguments: [`--bewe-server=${targetHost}:${targetPort}`],
     },
   });
   win.setMenuBarVisibility(false);
@@ -87,8 +97,8 @@ function createWindow() {
     scheduleRetry();
   });
 
-  // 시작 시 접속 화면을 건너뛰고 곧바로 central 로 접속
-  loadMonitor(targetHost, targetPort);
+  // 시작 시 로컬 UI를 곧바로 로드 (WS만 central 로 접속)
+  loadLocalMonitor();
 }
 
 // 락 획득 실패 후에도 whenReady가 실행되므로 초기화 전체를 락 획득 분기 안에 둔다

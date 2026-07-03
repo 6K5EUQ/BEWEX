@@ -252,19 +252,25 @@ button:hover { color: var(--text); border-color: #2a3550; }
   display: flex;
   align-items: center;
   gap: 14px;
-  flex-wrap: wrap;
   padding: 5px 10px;
   background: var(--panel);
   border-top: 1px solid var(--line);
 }
-.brand {
-  color: var(--dim);
-  font-size: 11px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  white-space: nowrap;
+.bar-side {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
-.brand .accent { color: var(--accent); }
+.bar-left { justify-content: flex-start; }
+.bar-right { justify-content: flex-end; }
+.bar-center {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
 .sep { width: 1px; height: 16px; background: var(--line); flex: none; }
 .bar-item {
   display: inline-flex;
@@ -279,13 +285,34 @@ button:hover { color: var(--text); border-color: #2a3550; }
   text-transform: uppercase;
 }
 .value { color: var(--text); letter-spacing: .06em; }
+
+/* SERVER 상태 배지 (hub와 동일 — 불빛으로 상태 표시) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(20, 24, 32, .8);
+}
+.badge .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--dim2);
+}
+.badge.ok .dot { background: #37d67a; box-shadow: 0 0 6px rgba(55, 214, 122, .7); }
+.badge.warn .dot { background: var(--warn); }
+.badge.err .dot { background: var(--live); animation: acq-pulse 1s ease-in-out infinite; }
 #missionClock {
   color: var(--accent);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: .08em;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 2px;
 }
-#clockBtn.armed { color: var(--live); border-color: #57221f; }
+#missionClock:hover { background: rgba(106, 176, 255, .1); }
+#missionClock.armed { color: var(--live); }
 #connText { color: var(--text); }
 .warn-text { color: var(--warn); font-size: 11px; letter-spacing: .08em; }
 

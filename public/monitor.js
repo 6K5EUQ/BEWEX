@@ -5,18 +5,15 @@
   const $ = (id) => document.getElementById(id);
   const layoutRoot = $('layoutRoot');
   const reconnectBanner = $('reconnectBanner');
-  const connText = $('connText');
-  const viewerCountEl = $('viewerCount');
+  const connBadge = $('connBadge');
   const unassignedEl = $('unassignedText');
-  const hubAddrEl = $('hubAddr');
   const missionClockEl = $('missionClock');
-  const clockBtn = $('clockBtn');
   const localClockEl = $('localClock');
   const utcClockEl = $('utcClock');
   const layoutBtn = $('layoutBtn');
 
   const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-  const SLOT_LABELS = { 1: 'CAM 1', 2: 'CAM 2', 3: 'APP' };
+  const SLOT_LABELS = { 1: 'CAM 1', 2: 'CAM 2', 3: 'BEWE' };
 
   let ws = null;
   let wsOpen = false;         // registered 수신 후 true
@@ -336,26 +333,44 @@
   });
 
   // 미션 클록 + 시계
-  let t0 = null; // 카운트 시작 시각 (epoch ms), null = 정지
+  // 미션 클록: 좌클릭 = 시작/일시정지 토글, 우클릭 = 리셋(확인)
+  let clockRunning = false;
+  let clockStartedAt = 0;    // 현재 구간 시작 시각 (epoch ms)
+  let clockAccumulated = 0;  // 일시정지로 누적된 경과 (ms)
 
-  clockBtn.addEventListener('click', () => {
-    if (t0 === null) {
-      t0 = Date.now();
-      clockBtn.textContent = 'RESET';
-      clockBtn.classList.add('armed');
-    } else if (confirm('미션 클록을 리셋할까요?')) {
-      t0 = null;
-      clockBtn.textContent = 'T-0 START';
-      clockBtn.classList.remove('armed');
-      missionClockEl.textContent = 'T+ 00:00:00';
+  function elapsedMs() {
+    return clockAccumulated + (clockRunning ? Date.now() - clockStartedAt : 0);
+  }
+
+  missionClockEl.addEventListener('click', () => {
+    if (clockRunning) {
+      // 일시정지: 현재 구간을 누적에 합산
+      clockAccumulated += Date.now() - clockStartedAt;
+      clockRunning = false;
+    } else {
+      // 시작/재개
+      clockStartedAt = Date.now();
+      clockRunning = true;
     }
+    missionClockEl.classList.toggle('armed', clockRunning);
+    renderClocks();
+  });
+
+  missionClockEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (!confirm('미션 클록을 리셋하시겠습니까?')) return;
+    clockRunning = false;
+    clockStartedAt = 0;
+    clockAccumulated = 0;
+    missionClockEl.classList.remove('armed');
+    missionClockEl.textContent = 'T+ 00:00:00';
   });
 
   const two = (n) => String(n).padStart(2, '0');
 
   function renderClocks() {
-    if (t0 !== null) {
-      let s = Math.max(0, Math.floor((Date.now() - t0) / 1000));
+    if (clockRunning || clockAccumulated > 0) {
+      let s = Math.max(0, Math.floor(elapsedMs() / 1000));
       const h = Math.floor(s / 3600);
       const m = Math.floor((s % 3600) / 60);
       missionClockEl.textContent = `T+ ${two(h)}:${two(m)}:${two(s % 60)}`;
@@ -367,15 +382,15 @@
   setInterval(renderClocks, 250);
   renderClocks();
 
-  // 하단 상태 바
+  // 하단 상태 바: SERVER 배지 불빛으로 상태 표시 (hub와 동일)
   function updateConn() {
     if (!wsOpen) {
-      connText.textContent = '서버 재연결 중…';
+      connBadge.className = 'badge err';   // 재연결 중
       return;
     }
     let live = 0;
     for (const feed of feeds.values()) if (feed.id && feed.gotMedia) live++;
-    connText.textContent = live > 0 ? `${live} FEED${live === 1 ? '' : 'S'} LIVE` : 'STANDBY';
+    connBadge.className = live > 0 ? 'badge ok' : 'badge warn'; // 피드 있으면 초록, 없으면 대기
   }
 
   function updateUnassigned() {
@@ -398,8 +413,13 @@
     }
   }
 
+  // 서버 주소: Electron이 주입한 window.__BEWE__ 우선, 없으면 페이지 origin(원격 로드 호환)
+  const SERVER = (window.__BEWE__ && window.__BEWE__.host)
+    ? `${window.__BEWE__.host}:${window.__BEWE__.port}`
+    : location.host;
+
   function connectWS() {
-    ws = new WebSocket(`wss://${location.host}/ws`);
+    ws = new WebSocket(`wss://${SERVER}/ws`);
 
     ws.onopen = () => {
       wsSend({ type: 'register', role: 'viewer' });
@@ -485,9 +505,6 @@
         if (!feed.gotMedia) markLive(feed);
         break;
       }
-      case 'viewer-count':
-        viewerCountEl.textContent = String(msg.count);
-        break;
       default:
         break;
     }
@@ -495,7 +512,6 @@
 
   // 시작
   // 최초 접속 전에는 HTML 기본값 "CONNECTING…"을 유지한다 (registered 수신 시 갱신)
-  hubAddrEl.textContent = location.host;
   applyLayout();
   connectWS();
 })();
