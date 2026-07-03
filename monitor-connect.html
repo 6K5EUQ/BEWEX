@@ -237,12 +237,18 @@
       // 이전 로드 실패 시 메인 프로세스가 쿼리로 에러를 전달한다
       const q = new URLSearchParams(location.search);
       if (q.get('error')) {
-        msg.className = 'msg';
-        msg.textContent = `허브 로드 실패: ${q.get('error')}` + (q.get('url') ? ` — ${q.get('url')}` : '');
+        if (q.get('retry')) {
+          // central 자동 재시도 중 — 서버가 켜지면 자동으로 접속된다
+          msg.className = 'msg info';
+          msg.textContent = `central 접속 대기 중… 5초마다 자동 재시도 (마지막 실패: ${q.get('error')})`;
+        } else {
+          msg.className = 'msg';
+          msg.textContent = `허브 로드 실패: ${q.get('error')}` + (q.get('url') ? ` — ${q.get('url')}` : '');
+        }
       }
 
-      // 마지막 접속 주소를 입력칸에 미리 채워 둔다
-      input.value = loadRecent()[0] || '';
+      // 마지막 접속 주소를 입력칸에 미리 채워 둔다 (기록이 없으면 central 기본값)
+      input.value = loadRecent()[0] || '100.123.59.3:8443';
       renderRecent();
     })();
   </script>

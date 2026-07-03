@@ -1,15 +1,24 @@
 // Mission Monitor 메인 프로세스.
-// 로컬 접속 화면(monitor-connect.html)을 띄우고, 사용자가 지정한 허브 호스트에
-// 한해 자체 서명 인증서를 허용한 뒤 https://허브:포트/monitor 를 로드한다.
+// 시작 시 접속 화면을 건너뛰고 곧바로 중앙 서버(CENTRAL)의 /monitor 를 로드한다.
+// 로드 실패 시 접속 화면(monitor-connect.html)으로 폴백하고 5초마다 자동 재시도한다
+// (서버가 꺼져 있어도 켜지면 자동 접속). 자체 서명 인증서는 CENTRAL(+ 로컬)에 한해 허용한다.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+
+// 중앙 서버(라즈베리파이) 주소 — 환경변수로 덮어쓸 수 있다
+const CENTRAL_HOST = process.env.BEWE_CENTRAL || '100.123.59.3';
+const CENTRAL_PORT = Number(process.env.BEWE_PORT) || 8443;
 
 // 모니터의 <video>가 사용자 클릭 없이도 재생되도록 허용
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let win = null;
-// 사용자가 접속을 지시한 허브 호스트 — 이 호스트(+ 로컬)에 한해서만 인증서 오류 허용
-let targetHost = null;
+// 현재 접속 대상 호스트/포트 — 이 호스트(+ 로컬)에 한해서만 인증서 오류 허용.
+// 초기값이 CENTRAL이라 시작 시 별도 지정 없이 자동 접속·인증서 허용이 된다.
+let targetHost = CENTRAL_HOST;
+let targetPort = CENTRAL_PORT;
+// central 로드 실패 시 자동 재시도 타이머
+let retryTimer = null;
 
 function isLocalHostname(hostname) {
   return hostname === '127.0.0.1' || hostname === 'localhost';
@@ -32,6 +41,25 @@ function loadConnectPage(query) {
   win.loadFile(page, query ? { query } : undefined).catch(() => {});
 }
 
+// 대상 호스트/포트의 /monitor 페이지를 로드한다 (대기 중인 자동 재시도는 취소)
+function loadMonitor(host, port) {
+  if (!win) return;
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  targetHost = host;
+  targetPort = port;
+  // 로드 실패는 did-fail-load 핸들러가 접속 화면 복귀 + 재시도로 처리한다
+  win.loadURL(`https://${host}:${port}/monitor`).catch(() => {});
+}
+
+// 로드 실패 후 5초 뒤 현재 대상으로 재접속을 시도한다 (서버가 켜지면 자동 접속)
+function scheduleRetry() {
+  if (retryTimer || !win) return;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    loadMonitor(targetHost, targetPort);
+  }, 5000);
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1280,
@@ -50,7 +78,7 @@ function createWindow() {
   win.setMenuBarVisibility(false);
   win.on('closed', () => { win = null; });
 
-  // 허브 로드 실패(주소 오타, 서버 꺼짐 등) → 접속 화면으로 복귀 + 에러 메시지 전달
+  // 로드 실패(주소 오타, 서버 꺼짐 등) → 접속 화면으로 폴백 + 5초마다 자동 재시도
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (!isMainFrame) return;
     if (errorCode === -3) return; // ERR_ABORTED — 사용자 이동 등 정상 취소
@@ -58,10 +86,13 @@ function createWindow() {
     loadConnectPage({
       error: `${errorDescription || 'LOAD FAILED'} (${errorCode})`,
       url: validatedURL || '',
+      retry: '1',
     });
+    scheduleRetry();
   });
 
-  loadConnectPage();
+  // 시작 시 접속 화면을 건너뛰고 곧바로 central 로 자동 접속한다
+  loadMonitor(targetHost, targetPort);
 }
 
 // app.quit()는 비동기라 락 획득 실패 후에도 whenReady가 실행되므로,
@@ -100,10 +131,10 @@ if (!app.requestSingleInstanceLock()) {
     const p = Number(port) || 8443;
     if (!/^[A-Za-z0-9.-]+$/.test(h)) throw new Error('잘못된 호스트 형식입니다');
     if (!(p >= 1 && p <= 65535)) throw new Error('잘못된 포트입니다');
-    targetHost = h;
     if (!win) return;
-    // 로드 실패는 did-fail-load 핸들러가 접속 화면 복귀로 처리한다
-    await win.loadURL(`https://${h}:${p}/monitor`).catch(() => {});
+    // 수동 접속: 대기 중인 자동 재시도를 취소하고 이 대상으로 로드한다.
+    // 로드 실패는 did-fail-load 핸들러가 접속 화면 복귀 + 재시도로 처리한다.
+    loadMonitor(h, p);
   });
 
   app.on('second-instance', () => {
