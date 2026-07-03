@@ -1,4 +1,4 @@
-// 관제 모니터 페이지 — 고정 3슬롯(CAM 1 / CAM 2 / APP)에 WebRTC 또는 RELAY 프레임 표시.
+// 관제 모니터 페이지 — 고정 3슬롯(CAM 1 / CAM 2 / BEWE)에 WebRTC 또는 RELAY 프레임 표시.
 (() => {
   'use strict';
 
@@ -308,7 +308,7 @@
   // 레이아웃 (layout-main / layout-triple)
   let layout = localStorage.getItem('monitor-layout') === 'triple' ? 'triple' : 'main';
   let mainSlot = parseInt(localStorage.getItem('monitor-main-slot'), 10);
-  if (![1, 2, 3].includes(mainSlot)) mainSlot = 3; // 기본 메인 = slot3(APP)
+  if (![1, 2, 3].includes(mainSlot)) mainSlot = 3; // 기본 메인 = slot3(BEWE)
 
   function applyLayout() {
     layoutRoot.classList.toggle('layout-main', layout === 'main');

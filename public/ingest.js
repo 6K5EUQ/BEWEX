@@ -26,7 +26,7 @@
   const FRAME_MAX_WIDTH = 640;
   const FRAME_QUALITY = 0.55;
 
-  const SLOT_LABEL = { 1: 'CAM 1', 2: 'CAM 2', 3: 'APP' };
+  const SLOT_LABEL = { 1: 'CAM 1', 2: 'CAM 2', 3: 'BEWE' };
 
   // 서버 주소: Electron이 주입한 window.__BEWE__ 우선, 없으면 페이지 origin(원격 로드 호환)
   const SERVER = (window.__BEWE__ && window.__BEWE__.host)
@@ -156,7 +156,7 @@
     };
   }
 
-  // APP 캡처 (슬롯3 방송, 두 번째 WS)
+  // BEWE 캡처 (슬롯3 방송, 두 번째 WS)
   let capturing = false;
   let capStream = null;
   let capWs = null;
@@ -323,7 +323,7 @@
       // 다른 송출자가 슬롯3을 가져간 경우(last-wins): 재연결하지 않고 캡처 종료
       if (ev.code === 4002) {
         stopCapture();
-        appMsg.textContent = '다른 송출자가 APP 슬롯으로 접속하여 캡처가 종료되었습니다.';
+        appMsg.textContent = '다른 송출자가 BEWE 슬롯으로 접속하여 캡처가 종료되었습니다.';
         return;
       }
       if (!capturing) return;
@@ -401,12 +401,12 @@
 
     capturing = true;
     capFallback = false;
-    capName = String(title || 'APP').trim().slice(0, 30) || 'APP';
+    capName = String(title || 'BEWE').trim().slice(0, 30) || 'BEWE';
     localStorage.setItem('ingest-last-window', String(title || ''));
 
     appPreview.srcObject = capStream;
     appPreview.play().catch(() => {});
-    appTitle.textContent = title || 'APP';
+    appTitle.textContent = title || 'BEWE';
     appIdle.classList.add('hidden');
     appLive.classList.remove('hidden');
 
@@ -530,7 +530,7 @@
   async function init() {
     renderSlots();
 
-    // APP 캡처는 Electron 앱(preload) 안에서만 가능
+    // BEWE 캡처는 Electron 앱(preload) 안에서만 가능
     if (!window.ingestAPI) {
       pickBtn.disabled = true;
       appMsg.textContent = '창 캡처는 BEWEX Hub 앱 창에서만 사용할 수 있습니다.';

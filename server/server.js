@@ -196,7 +196,7 @@ async function startServer({ certDir, preferredPort = 8443 } = {}) {
           prev.ws.close(4002, 'slot-taken');
         }
         const defaultName =
-          slot === 1 ? 'CAM 1' : slot === 2 ? 'CAM 2' : slot === 3 ? 'APP' : `카메라 ${id}`;
+          slot === 1 ? 'CAM 1' : slot === 2 ? 'CAM 2' : slot === 3 ? 'BEWE' : `카메라 ${id}`;
         const name = String(msg.name || '').trim().slice(0, 30) || defaultName;
         me = { id, ws, role, name, kind, slot, fallback: false, observer: false };
         clients.set(id, me);
