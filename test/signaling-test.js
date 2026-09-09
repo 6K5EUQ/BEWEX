@@ -184,7 +184,7 @@ function assert(cond, label) {
     const appReg = await appB.waitFor('registered');
     assert(appReg.slot === 3, "kind:'app' slot 미지정은 슬롯 3 배정");
     const jApp = await viewer.waitFor('broadcaster-joined');
-    assert(jApp.id === appReg.id && jApp.kind === 'app' && jApp.name === 'APP', '슬롯3 기본 이름은 APP');
+    assert(jApp.id === appReg.id && jApp.kind === 'app' && jApp.name === 'BEWE', '슬롯3 기본 이름은 BEWE');
 
     // 8. watch → offer → answer → ice 중계 (from 부착)
     viewer.send({ type: 'watch', target: cam1bReg.id });
