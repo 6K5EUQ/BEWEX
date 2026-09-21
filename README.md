@@ -1,5 +1,7 @@
 # BEWEX
 
+![BEWEX Monitor](assets/screenshots/monitor-preview.png)
+
 **흩어져 있는 카메라 세 개를 한 화면에 모아 보는 관제 시스템.**
 
 현장에 있는 사람은 휴대폰만 있으면 되고, PC 화면 하나를 같이 얹어
